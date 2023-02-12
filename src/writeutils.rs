@@ -47,6 +47,15 @@ impl<'a, W: Write + Seek> Seek for TwoWrite<'a, W> {
     }
 }
 
+/// A writer adapter struct for font tables.
+///
+/// Each font table must be u32-aligned: any trailing bytes need to be
+/// 0x00 padded. Additionally, each table record tracks the table's
+/// length and its checksum, literally a (wrapping) u32 sum of its
+/// u32 chunks.
+///
+/// This adapter manages these requirements: the `finalize` method
+/// pads the result and returns a tuple of the checksum and length.
 pub(crate) struct TableWriter<'a, W: Write> {
     writer: &'a mut W,
     checksum: u32,

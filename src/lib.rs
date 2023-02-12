@@ -1,6 +1,8 @@
 mod tables;
 mod writeutils;
 
+use std::path::Path;
+use std::fs::File;
 use std::io::{self, Seek, SeekFrom, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::tables::{CMap, Glyf, Head, Name};
@@ -28,6 +30,14 @@ pub struct Font {
 }
 
 impl Font {
+    /// Save the font to a file at the path specified.
+    pub fn save<Q: AsRef<Path>>(&self, path: Q) -> io::Result<()> {
+        let mut file = File::create(path)?;
+        self.write_to(&mut file)?;
+        Ok(())
+    }
+
+    /// Encode this font and write it to `writer`.
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.

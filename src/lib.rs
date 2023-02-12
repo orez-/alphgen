@@ -4,7 +4,7 @@ mod writeutils;
 use std::io::{self, Seek, SeekFrom, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::tables::{CMap, Glyf, Head, Name};
-use crate::writeutils::{TwoWrite};
+use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
 // Fixed   16.16-bit signed fixed-point number
@@ -72,75 +72,6 @@ impl Font {
 trait FontTable {
     const TAG: &'static [u8; 4];
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()>;
-}
-
-struct TableWriter<'a, W: Write> {
-    writer: &'a mut W,
-    checksum: u32,
-    in_progress_word: [u8; 4],
-    length: usize,
-}
-
-impl<'a, W: Write> TableWriter<'a, W> {
-    fn new(writer: &'a mut W) -> TableWriter<'a, W> {
-        Self {
-            writer,
-            checksum: 0,
-            in_progress_word: [0, 0, 0, 0],
-            length: 0,
-        }
-    }
-
-    fn finalize(mut self) -> io::Result<(u32, u32)> {
-        let count = (4 - self.length % 4) % 4;
-        if count != 0 {
-            self.write_all(&vec![0; count])?;
-        }
-        Ok((self.checksum, self.length as u32))
-    }
-}
-
-impl<'a, W: Write> Write for TableWriter<'a, W> {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let out = self.writer.write(bytes)?;
-        if bytes.is_empty() { return Ok(out); }
-        let bytes = &bytes[..out];
-
-        // front
-        let len = self.length % 4;
-        let to_take = bytes.len().min(4 - len);
-        let (front, bytes) = bytes.split_at(to_take);
-        if len != 0 {
-            self.in_progress_word[len..][..to_take]
-                .copy_from_slice(front);
-            self.length += to_take;
-            if len + to_take < 4 {
-                return Ok(out);
-            }
-            let word = u32::from_be_bytes(self.in_progress_word);
-            self.checksum = self.checksum.wrapping_add(word);
-        }
-
-        // middle
-        // XXX: array_chunks is nightly as of 1.67
-        let mut chunks = bytes.chunks_exact(4);
-        for chunk in chunks.by_ref() {
-            let chunk = chunk.try_into().unwrap();
-            let word = u32::from_be_bytes(chunk);
-            self.checksum = self.checksum.wrapping_add(word);
-        }
-
-        // end
-        let rem = chunks.remainder();
-        self.in_progress_word[..rem.len()]
-            .copy_from_slice(rem);
-
-        Ok(out)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.writer.flush()
-    }
 }
 
 // Bit-aligned bitmap data padded to byte boundaries.

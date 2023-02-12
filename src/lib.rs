@@ -4,7 +4,6 @@ use std::io::{self, Seek, SeekFrom, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::tables::{CMap, Glyf, Head, Name};
 use SeekFrom::Start;
-// use crate::push_bytes::PushBytes;
 
 // shortFrac   16-bit signed fraction
 // Fixed   16.16-bit signed fixed-point number
@@ -29,7 +28,10 @@ pub struct Font {
 
 impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
-        let table_count = 4_u16;
+        // TODO: I don't know what the best way to represent these tables is,
+        // but hardcoding the length like this is almost surely Not It.
+        let table_count = 4;
+
         // Header
         // u32 - magic
         writer.write_all(&[0x00, 0x01, 0x00, 0x00])?;
@@ -50,6 +52,16 @@ impl Font {
     }
 
     fn write_table<W: Write + Seek, T: FontTable>(&self, writer: &mut W, table: &T) -> io::Result<()> {
+        // TODO: ughgauhfdodidisfb
+        // I don't want to `&mut`-pass these two ↓↓↓ knuckleheads to maintain em,
+        // I don't want to keep em attached to the `Font`.
+        // Can't sneak em in by converting `write_table` to a closure in `write_to`:
+        // closures can't have generics (which.. makes sense. something about closures
+        // implicitly capturing + borrowing ownership of variables feels incompatible with
+        // compiling multiple versions for the different concrete types).
+        // Could associate em with a `Write+Seek` adapter?? Idk this feels excessive.
+        // Maybe on a `Font` adapter???? That just feels silly.
+        // Regardless, they're just broken currently, so.. figure that out.
         let mut record_ptr = 0;
         let mut table_ptr = 0;
 
@@ -141,33 +153,6 @@ impl<'a, W: Write> Write for TableWriter<'a, W> {
         self.writer.flush()
     }
 }
-
-// uint32 CalcTableChecksum(uint32 *table, uint32 numberOfBytesInTable)
-//     {
-//     uint32 sum = 0;
-//     uint32 nLongs = (numberOfBytesInTable + 3) / 4;
-//     while (nLongs-- > 0)
-//         sum += *table++;
-//     return sum;
-//     }
-
-
-// fn table_checksum(len: u32) -> u32 {
-//     let mut sum = 0;
-//     let n_longs = (len + 3) / 4;
-//     for _ in 0..n_longs {
-//         sum = sum.wrapping_add(
-//     }
-//     sum
-// }
-
-// trait WriteAt: Write + Seek {
-//     fn at<F>(pos: SeekFrom, f: F)
-//     where F: FnOnce(&mut Self) -> io::Result<()>
-//     {
-//         self.stream_position;
-//     }
-// }
 
 // Bit-aligned bitmap data padded to byte boundaries.
 

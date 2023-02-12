@@ -1,19 +1,22 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html
-use crate::push_bytes::PushBytes;
-use serde::{Serialize, Serializer};
+use crate::{FontTable, TableWriter};
+use std::io::{self, Write};
+use byteorder::{BigEndian, WriteBytesExt};
 
 pub(crate) struct CMap {
     subtables: Vec<CMapSubtableRecord>,
 }
 
-impl Serialize for CMap {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
+impl FontTable for CMap {
+    const TAG: &'static [u8; 4] = b"cmap";
+
+    fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
+
         let mut subtables = Vec::new();
         // version
-        buf.push_be_u16(0x0000);
+        writer.write_u16::<BigEndian>(0x0000)?;
         let len = self.subtables.len() as u16;
-        buf.push_be_u16(len);
+        writer.write_u16::<BigEndian>(len)?;
 
         // 4 bytes for version + len,
         // 8 bytes for each encoding record
@@ -21,15 +24,13 @@ impl Serialize for CMap {
 
         // encoding records
         for record in &self.subtables {
-            buf.push_be_u16(record.platform_id);
-            buf.push_be_u16(record.encoding_id);
-            buf.push_be_u32(offset);
-            let subtable = record.subtable.serialize();
-            offset += subtable.len() as u32;
-            subtables.extend(subtable);
+            writer.write_u16::<BigEndian>(record.platform_id)?;
+            writer.write_u16::<BigEndian>(record.encoding_id)?;
+            writer.write_u32::<BigEndian>(offset)?;
+            offset += record.subtable.write(&mut subtables)? as u32;
         }
-        buf.extend(subtables);
-        serializer.serialize_bytes(&buf)
+        writer.write_all(&subtables)?;
+        Ok(())
     }
 }
 
@@ -46,19 +47,17 @@ enum CMapSubtable {
     }
 }
 
-// XXX: hey, wait a second,
-// this isn't related to serde at all!
 impl CMapSubtable {
-    fn serialize(&self) -> Vec<u8> {
-        let mut out = Vec::new();
+    fn write(&self, buf: &mut Vec<u8>) -> io::Result<usize> {
+        let original_len = buf.len();
         match self {
             CMapSubtable::Format0 { language_id, glyph_indexes } => {
-                out.push_be_u16(0x0000);  // format
-                out.push_be_u16(0x0106);  // subtable size
-                out.push_be_u16(*language_id);
-                out.extend(glyph_indexes);
+                buf.write_u16::<BigEndian>(0x0000)?;  // format
+                buf.write_u16::<BigEndian>(0x0106)?;  // subtable size
+                buf.write_u16::<BigEndian>(*language_id)?;
+                buf.extend(glyph_indexes);
             }
         }
-        out
+        Ok(buf.len() - original_len)
     }
 }

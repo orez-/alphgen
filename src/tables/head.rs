@@ -1,7 +1,8 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6head.html
+use crate::{FontTable, TableWriter};
 use bitflags::bitflags;
-use crate::push_bytes::PushBytes;
-use serde::{Serialize, Serializer};
+use byteorder::{BigEndian, WriteBytesExt};
+use std::io::{self, Write};
 
 type DateTime = i64;
 
@@ -25,28 +26,29 @@ pub(crate) struct Head {
     glyph_data_format: i16,
 }
 
-impl Serialize for Head {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        buf.push_be_u32(self.version);
-        buf.push_be_u32(self.font_revision);
-        buf.push_be_u32(self.checksum_adjustment);
-        buf.push_be_u32(0x5F0F3CF5);  // magic number
-        buf.push_be_u16(self.flags);
-        buf.push_be_u16(self.units_per_em);
-        buf.push_be_i64(self.created);
-        buf.push_be_i64(self.modified);
-        buf.push_be_i16(self.x_min);
-        buf.push_be_i16(self.y_min);
-        buf.push_be_i16(self.x_max);
-        buf.push_be_i16(self.y_max);
-        buf.push_be_u16(self.mac_style.bits());
-        buf.push_be_u16(self.lowest_rec_ppem);
-        buf.push_be_i16(self.font_direction_hint);
-        buf.push_be_i16(self.index_to_loc_format);
-        buf.push_be_i16(self.glyph_data_format);
-        buf.push_be_u16(0x0000);
-        serializer.serialize_bytes(&buf)
+impl FontTable for Head {
+    const TAG: &'static [u8; 4] = b"head";
+
+    fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
+        writer.write_u32::<BigEndian>(self.version)?;
+        writer.write_u32::<BigEndian>(self.font_revision)?;
+        writer.write_u32::<BigEndian>(self.checksum_adjustment)?;
+        writer.write_u32::<BigEndian>(0x5F0F3CF5)?;  // magic number
+        writer.write_u16::<BigEndian>(self.flags)?;
+        writer.write_u16::<BigEndian>(self.units_per_em)?;
+        writer.write_i64::<BigEndian>(self.created)?;
+        writer.write_i64::<BigEndian>(self.modified)?;
+        writer.write_i16::<BigEndian>(self.x_min)?;
+        writer.write_i16::<BigEndian>(self.y_min)?;
+        writer.write_i16::<BigEndian>(self.x_max)?;
+        writer.write_i16::<BigEndian>(self.y_max)?;
+        writer.write_u16::<BigEndian>(self.mac_style.bits())?;
+        writer.write_u16::<BigEndian>(self.lowest_rec_ppem)?;
+        writer.write_i16::<BigEndian>(self.font_direction_hint)?;
+        writer.write_i16::<BigEndian>(self.index_to_loc_format)?;
+        writer.write_i16::<BigEndian>(self.glyph_data_format)?;
+        writer.write_u16::<BigEndian>(0x0000)?;
+        Ok(())
     }
 }
 

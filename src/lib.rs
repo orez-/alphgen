@@ -1,9 +1,10 @@
 mod tables;
+mod writeutils;
 
 use std::io::{self, Seek, SeekFrom, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::tables::{CMap, Glyf, Head, Name};
-use SeekFrom::Start;
+use crate::writeutils::{TwoWrite};
 
 // shortFrac   16-bit signed fraction
 // Fixed   16.16-bit signed fixed-point number
@@ -31,51 +32,39 @@ impl Font {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
         let table_count = 4;
+        let table_ptr = 12 + table_count as u64 * 16;
+        let mut writer = TwoWrite::split_at(writer, table_ptr);
 
         // Header
         // u32 - magic
         writer.write_all(&[0x00, 0x01, 0x00, 0x00])?;
-        writer.write_u16::<BigEndian>(table_count)?;
         // u16 - number of tables
+        writer.write_u16::<BigEndian>(table_count)?;
         // u16 - search range
         // u16 - entry selector
         // u16 - range shift
-        let mut record_ptr = 12;
-        let mut table_ptr = 12 + table_count as u32 * 16;
-        writer.seek(Start(table_ptr as u64))?;
+
+        writer.swap()?;
         // Table Records
-        self.write_table(writer, &self.cmap)?;
-        self.write_table(writer, &self.glyf)?;
-        self.write_table(writer, &self.head)?;
-        self.write_table(writer, &self.name)?;
+        self.write_table(&mut writer, &self.cmap)?;
+        self.write_table(&mut writer, &self.glyf)?;
+        self.write_table(&mut writer, &self.head)?;
+        self.write_table(&mut writer, &self.name)?;
         Ok(())
     }
 
-    fn write_table<W: Write + Seek, T: FontTable>(&self, writer: &mut W, table: &T) -> io::Result<()> {
-        // TODO: ughgauhfdodidisfb
-        // I don't want to `&mut`-pass these two ↓↓↓ knuckleheads to maintain em,
-        // I don't want to keep em attached to the `Font`.
-        // Can't sneak em in by converting `write_table` to a closure in `write_to`:
-        // closures can't have generics (which.. makes sense. something about closures
-        // implicitly capturing + borrowing ownership of variables feels incompatible with
-        // compiling multiple versions for the different concrete types).
-        // Could associate em with a `Write+Seek` adapter?? Idk this feels excessive.
-        // Maybe on a `Font` adapter???? That just feels silly.
-        // Regardless, they're just broken currently, so.. figure that out.
-        let mut record_ptr = 0;
-        let mut table_ptr = 0;
-
+    fn write_table<W: Write + Seek, T: FontTable>(&self, writer: &mut TwoWrite<W>, table: &T) -> io::Result<()> {
+        let table_ptr = writer.stream_position()? as u32;
         let mut twriter = TableWriter::new(writer);
         table.write(&mut twriter)?;
         let (checksum, length) = twriter.finalize()?;
-        writer.seek(Start(record_ptr))?;
+        writer.swap()?;
+
         writer.write_all(T::TAG)?;
         writer.write_u32::<BigEndian>(checksum)?;
         writer.write_u32::<BigEndian>(table_ptr)?;
         writer.write_u32::<BigEndian>(length)?;
-        record_ptr += 8;
-        table_ptr += length;
-        writer.seek(Start(table_ptr as u64))?;
+        writer.swap()?;
         Ok(())
     }
 }

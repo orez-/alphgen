@@ -1,4 +1,5 @@
 mod tables;
+mod sprite;
 mod writeutils;
 
 use std::path::Path;

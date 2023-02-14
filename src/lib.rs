@@ -1,3 +1,4 @@
+mod itertools;
 mod tables;
 mod sprite;
 mod writeutils;
@@ -85,6 +86,24 @@ trait FontTable {
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()>;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct Rect {
+    pub x_min: i16,
+    pub y_min: i16,
+    pub x_max: i16,
+    pub y_max: i16,
+}
+
+impl Rect {
+    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_i16::<BigEndian>(self.x_min)?;
+        writer.write_i16::<BigEndian>(self.y_min)?;
+        writer.write_i16::<BigEndian>(self.x_max)?;
+        writer.write_i16::<BigEndian>(self.y_max)?;
+        Ok(())
+    }
+}
+
 // Bit-aligned bitmap data padded to byte boundaries.
 
 // Optional tables
@@ -97,7 +116,7 @@ trait FontTable {
 
 type Bitmap<'a> = &'a [u8];
 
-pub fn bitmap_font<'a, G, L>(width: usize, height: usize, glyphs: G, ligatures: L) -> Font
+pub fn bitmap_font<'a, G, L>(width: usize, height: usize, glyphs: G, _ligatures: L) -> Font
 where
     G: IntoIterator<Item=(char, Bitmap<'a>)>,
     L: IntoIterator<Item=(&'a str, Bitmap<'a>)>,

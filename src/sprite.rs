@@ -8,7 +8,15 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    fn find_contours(&self) -> Vec<Vec<(usize, usize)>> {
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn find_contours(&self) -> Vec<Vec<(usize, usize)>> {
         use Direction::*;
 
         // find all edges

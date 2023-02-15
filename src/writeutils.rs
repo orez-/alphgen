@@ -132,7 +132,7 @@ pub(crate) struct CountWriter<W: Write> {
 }
 
 impl<W: Write> CountWriter<W> {
-    pub fn new(writer: W) -> Self {
+    pub fn from(writer: W) -> Self {
         CountWriter {
             writer,
             count: 0,
@@ -145,6 +145,12 @@ impl<W: Write> CountWriter<W> {
 
     pub fn into_inner(self) -> W {
         self.writer
+    }
+}
+
+impl CountWriter<io::Sink> {
+    pub fn sink() -> Self {
+        Self::from(io::sink())
     }
 }
 

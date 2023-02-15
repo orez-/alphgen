@@ -16,6 +16,11 @@ impl Sprite {
         self.height
     }
 
+    /// Find the list of contours which define this sprite.
+    ///
+    /// A contour in this context is the ordered, cyclical list of
+    /// points which describe a line loop. Each line has black pixels
+    /// to its right, and not-black pixels to its left.
     pub fn find_contours(&self) -> Vec<Vec<(usize, usize)>> {
         use Direction::*;
 

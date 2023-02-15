@@ -34,7 +34,7 @@ pub(crate) struct Head {
     mac_style: MacStyle,
     lowest_rec_ppem: u16,  // smallest readable size in pixels
     font_direction_hint: i16,
-    index_to_loc_format: i16,  // 0 for short offsets, 1 for long
+    pub index_to_loc_format: i16,  // 0 for short offsets, 1 for long
     glyph_data_format: i16,
 }
 

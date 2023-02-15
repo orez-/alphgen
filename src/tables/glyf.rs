@@ -5,6 +5,7 @@ use crate::{FontTable, Rect, TableWriter};
 use crate::sprite::Sprite;
 use crate::tables::Loca;
 use crate::itertools::split_when;
+use crate::writeutils::CountWriter;
 use std::io::{self, Cursor, Write};
 
 pub(crate) struct Glyf {
@@ -35,7 +36,14 @@ impl Glyf {
     // into the three tables. Having to maintain invariants between these three
     // tables sounds baaaaa-aad. I do not want it.
     pub fn generate_loca(&self) -> Loca {
-        todo!();
+        let mut offsets = vec![0];
+        let mut writer = CountWriter::sink();
+        for glyph in &self.glyphs {
+            glyph.write(&mut writer)
+                .expect("we're not writing it anywhere");
+            offsets.push(writer.count());
+        }
+        Loca::from(offsets)
     }
 }
 

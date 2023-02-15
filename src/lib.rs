@@ -45,7 +45,7 @@ impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
-        let table_count = 4;
+        let table_count = 5;
         let table_ptr = 12 + table_count as u64 * 16;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
 
@@ -130,11 +130,13 @@ where
     let glyf = Glyf::from(sprites);
     let loca = glyf.generate_loca();
     let cmap = CMap::from_ascii_order(&chars)?;
+    let mut head = Head::new();
+    head.index_to_loc_format = loca.needs_long() as i16;  // XXX: 😬
 
     let font = Font {
         cmap,
         glyf,
-        head: Head::new(),
+        head,
         loca,
         name: Name::new(),
     };

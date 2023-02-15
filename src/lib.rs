@@ -55,8 +55,11 @@ impl Font {
         // u16 - number of tables
         writer.write_u16::<BigEndian>(table_count)?;
         // u16 - search range
+        writer.write_u16::<BigEndian>(0)?;
         // u16 - entry selector
+        writer.write_u16::<BigEndian>(0)?;
         // u16 - range shift
+        writer.write_u16::<BigEndian>(0)?;
 
         writer.swap()?;
         // Table Records

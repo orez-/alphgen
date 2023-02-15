@@ -84,20 +84,20 @@ impl<'a, W: Write> TableWriter<'a, W> {
 
 impl<'a, W: Write> Write for TableWriter<'a, W> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let out = self.writer.write(bytes)?;
-        if bytes.is_empty() { return Ok(out); }
-        let bytes = &bytes[..out];
+        let written = self.writer.write(bytes)?;
+        if bytes.is_empty() { return Ok(written); }
+        let bytes = &bytes[..written];
+        let len = self.length % 4;
+        self.length += written;
 
         // front
-        let len = self.length % 4;
         let to_take = bytes.len().min(4 - len);
         let (front, bytes) = bytes.split_at(to_take);
         if len != 0 {
             self.in_progress_word[len..][..to_take]
                 .copy_from_slice(front);
-            self.length += to_take;
             if len + to_take < 4 {
-                return Ok(out);
+                return Ok(written);
             }
             let word = u32::from_be_bytes(self.in_progress_word);
             self.checksum = self.checksum.wrapping_add(word);
@@ -117,7 +117,7 @@ impl<'a, W: Write> Write for TableWriter<'a, W> {
         self.in_progress_word[..rem.len()]
             .copy_from_slice(rem);
 
-        Ok(out)
+        Ok(written)
     }
 
     fn flush(&mut self) -> io::Result<()> {

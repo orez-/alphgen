@@ -124,3 +124,38 @@ impl<'a, W: Write> Write for TableWriter<'a, W> {
         self.writer.flush()
     }
 }
+
+/// Writer adapter to count the
+pub(crate) struct CountWriter<W: Write> {
+    writer: W,
+    count: usize,
+}
+
+impl<W: Write> CountWriter<W> {
+    pub fn new(writer: W) -> Self {
+        CountWriter {
+            writer,
+            count: 0,
+        }
+    }
+
+    pub fn count(&self) -> usize {
+        self.count
+    }
+
+    pub fn into_inner(self) -> W {
+        self.writer
+    }
+}
+
+impl<W: Write> Write for CountWriter<W> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let len = self.writer.write(bytes)?;
+        self.count += len;
+        Ok(len)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+}

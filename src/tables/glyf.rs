@@ -3,6 +3,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use bitflags::bitflags;
 use crate::{FontTable, Rect, TableWriter};
 use crate::sprite::Sprite;
+use crate::tables::Loca;
 use crate::itertools::split_when;
 use std::io::{self, Cursor, Write};
 
@@ -23,7 +24,22 @@ impl FontTable for Glyf {
     }
 }
 
-struct Glyph {
+impl Glyf {
+    pub(crate) fn from<I: IntoIterator<Item=G>, G: Into<Glyph>>(it: I) -> Self {
+        let glyphs: Vec<Glyph> = it.into_iter().map(|x| x.into()).collect();
+        Glyf { glyphs }
+    }
+
+    // XXX: i hate it!
+    // i think probably glyf + loca + cmap should be one struct that serializes
+    // into the three tables. Having to maintain invariants between these three
+    // tables sounds baaaaa-aad. I do not want it.
+    pub fn generate_loca(&self) -> Loca {
+        todo!();
+    }
+}
+
+pub(crate) struct Glyph {
     rect: Rect,
     glyph_data: GlyphData,
 }
@@ -141,8 +157,8 @@ impl Glyph {
     }
 }
 
-impl From<&Sprite> for Glyph {
-    fn from(sprite: &Sprite) -> Self {
+impl From<Sprite> for Glyph {
+    fn from(sprite: Sprite) -> Self {
         let contours = sprite.find_contours();
         let glyph_data = GlyphData::Simple {
             instructions: Vec::new(),

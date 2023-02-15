@@ -1,13 +1,15 @@
 mod itertools;
-mod tables;
+mod platform;
 mod sprite;
+mod tables;
 mod writeutils;
 
 use std::path::Path;
 use std::fs::File;
-use std::io::{self, Seek, SeekFrom, Write};
+use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
-use crate::tables::{CMap, Glyf, Head, Name};
+use crate::sprite::Sprite;
+use crate::tables::{CMap, Glyf, Head, Loca, Name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
@@ -25,7 +27,7 @@ pub struct Font {
     head: Head, // font header
     // hhea: ?, // horizontal header
     // hmtx: ?, // horizontal metrics
-    // loca: ?, // index to location
+    loca: Loca, // index to location
     // maxp: ?, // maximum profile
     name: Name, // naming
     // post: ?, // PostScript
@@ -61,6 +63,7 @@ impl Font {
         self.write_table(&mut writer, &self.cmap)?;
         self.write_table(&mut writer, &self.glyf)?;
         self.write_table(&mut writer, &self.head)?;
+        self.write_table(&mut writer, &self.loca)?;
         self.write_table(&mut writer, &self.name)?;
         Ok(())
     }
@@ -116,10 +119,24 @@ impl Rect {
 
 type Bitmap<'a> = &'a [u8];
 
-pub fn bitmap_font<'a, G, L>(width: usize, height: usize, glyphs: G, _ligatures: L) -> Font
+pub fn bitmap_font<'a, G, L>(width: usize, height: usize, glyphs: G, _ligatures: L) -> Result<Font, ()>
 where
     G: IntoIterator<Item=(char, Bitmap<'a>)>,
     L: IntoIterator<Item=(&'a str, Bitmap<'a>)>,
 {
-    todo!();
+    let (chars, bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
+    let sprites = bitmaps.into_iter()
+        .map(|bitmap| Sprite { width, height, data: bitmap.into() });
+    let glyf = Glyf::from(sprites);
+    let loca = glyf.generate_loca();
+    let cmap = CMap::from_ascii_order(&chars)?;
+
+    let font = Font {
+        cmap,
+        glyf,
+        head: Head::new(),
+        loca,
+        name: Name::new(),
+    };
+    Ok(font)
 }

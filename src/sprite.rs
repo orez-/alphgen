@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 pub struct Sprite {
     // XXX: this should be &[u8] but i dont want to live in lifetime hell right now
-    data: Box<[u8]>,
-    width: usize,
-    height: usize,
+    pub data: Box<[u8]>,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl Sprite {

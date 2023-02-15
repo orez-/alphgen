@@ -3,6 +3,7 @@ use alphgen;
 fn main() {
     let width = 8;
     let height = 8;
+    let missing_glyph = &0xff99a589918191ffu64.to_be_bytes();
     let glyphs: [(char, &[u8]); 26] = [
         ('a', &0x0000708888986800u64.to_be_bytes()),
         ('b', &0x8080f0888888f000u64.to_be_bytes()),
@@ -33,7 +34,7 @@ fn main() {
     ];
     let ligatures = Vec::new();
 
-    let font = alphgen::bitmap_font(width, height, glyphs, ligatures)
+    let font = alphgen::bitmap_font(width, height, missing_glyph, glyphs, ligatures)
         .unwrap();
     font.save("my_neat_font.ttf")
         .unwrap();

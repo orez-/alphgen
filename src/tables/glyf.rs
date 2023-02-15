@@ -3,7 +3,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use bitflags::bitflags;
 use crate::{FontTable, Rect, TableWriter};
 use crate::sprite::Sprite;
-use crate::tables::Loca;
+use crate::tables::{Loca, MaxP};
 use crate::itertools::split_when;
 use crate::writeutils::CountWriter;
 use std::io::{self, Cursor, Write};
@@ -16,8 +16,6 @@ impl FontTable for Glyf {
     const TAG: &'static [u8; 4] = b"glyf";
 
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
-        // XXX: I think the `loca` table needs these offsets.
-        // I will worry about this later.
         for glyph in &self.glyphs {
             glyph.write(writer)?;
         }
@@ -44,6 +42,41 @@ impl Glyf {
             offsets.push(writer.count());
         }
         Loca::from(offsets)
+    }
+
+    fn max_aspect<F: Fn(&Glyph) -> usize>(&self, f: F) -> u16 {
+        self.glyphs.iter()
+            .map(f)
+            .max()
+            .unwrap_or(0) as u16
+    }
+
+    /// The maxComponentDepth refers to the number of levels of recursion used in constructing
+    /// the most complex compound glyph. The maximum legal value for maxComponentDepth is 16.
+    /// If there are no components within components, all compound glyphs can be deemed simple
+    /// and this field can be set to the value one.
+    fn max_component_depth(&self) -> u16 {
+        1
+    }
+
+    pub fn generate_maxp(&self) -> MaxP {
+        MaxP {
+            version: 0x00010000,
+            num_glyphs: self.glyphs.len() as u16,
+            max_points: self.max_aspect(Glyph::point_count),
+            max_contours: self.max_aspect(Glyph::contour_count),
+            max_component_points: self.max_aspect(Glyph::component_point_count),
+            max_component_contours: self.max_aspect(Glyph::component_contour_count),
+            max_zones: 2,
+            max_twilight_points: 0,
+            max_storage: 0,
+            max_function_defs: 0,
+            max_instruction_defs: 0,
+            max_stack_elements: 0,
+            max_size_of_instructions: self.max_aspect(Glyph::instruction_byte_count),
+            max_component_elements: 1,
+            max_component_depth: self.max_component_depth(),
+        }
     }
 }
 
@@ -162,6 +195,40 @@ impl Glyph {
             }
         }
         Ok(flag)
+    }
+
+    /// Points in non-compound glyph
+    fn point_count(&self) -> usize {
+        match &self.glyph_data {
+            GlyphData::Simple { contours, .. } => contours.iter().map(|c| c.len()).sum(),
+        }
+    }
+
+    /// Contours in non-compound glyph
+    fn contour_count(&self) -> usize {
+        match &self.glyph_data {
+            GlyphData::Simple { contours, .. } => contours.len(),
+        }
+    }
+
+    /// Points in compound glyph
+    fn component_point_count(&self) -> usize {
+        match &self.glyph_data {
+            GlyphData::Simple { .. } => 0,
+        }
+    }
+
+    /// Contours in compound glyph
+    fn component_contour_count(&self) -> usize {
+        match &self.glyph_data {
+            GlyphData::Simple { .. } => 0,
+        }
+    }
+
+    fn instruction_byte_count(&self) -> usize {
+        match &self.glyph_data {
+            GlyphData::Simple { instructions, .. } => instructions.len(),
+        }
     }
 }
 

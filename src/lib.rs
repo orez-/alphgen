@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, Head, Loca, Name};
+use crate::tables::{CMap, Glyf, Head, Loca, MaxP, Name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
@@ -28,7 +28,7 @@ pub struct Font {
     // hhea: ?, // horizontal header
     // hmtx: ?, // horizontal metrics
     loca: Loca, // index to location
-    // maxp: ?, // maximum profile
+    maxp: MaxP, // maximum profile
     name: Name, // naming
     // post: ?, // PostScript
 }
@@ -45,7 +45,7 @@ impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
-        let table_count = 5;
+        let table_count = 6;
         let table_ptr = 12 + table_count as u64 * 16;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
 
@@ -67,6 +67,7 @@ impl Font {
         self.write_table(&mut writer, &self.glyf)?;
         self.write_table(&mut writer, &self.head)?;
         self.write_table(&mut writer, &self.loca)?;
+        self.write_table(&mut writer, &self.maxp)?;
         self.write_table(&mut writer, &self.name)?;
         Ok(())
     }
@@ -122,16 +123,18 @@ impl Rect {
 
 type Bitmap<'a> = &'a [u8];
 
-pub fn bitmap_font<'a, G, L>(width: usize, height: usize, glyphs: G, _ligatures: L) -> Result<Font, ()>
+pub fn bitmap_font<'a, G, L>(width: usize, height: usize, missing_glyph: Bitmap<'a>, glyphs: G, _ligatures: L) -> Result<Font, ()>
 where
     G: IntoIterator<Item=(char, Bitmap<'a>)>,
     L: IntoIterator<Item=(&'a str, Bitmap<'a>)>,
 {
     let (chars, bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
     let sprites = bitmaps.into_iter()
+        .chain([missing_glyph])
         .map(|bitmap| Sprite { width, height, data: bitmap.into() });
     let glyf = Glyf::from(sprites);
     let loca = glyf.generate_loca();
+    let maxp = glyf.generate_maxp();
     let cmap = CMap::from_ascii_order(&chars)?;
     let mut head = Head::new();
     head.index_to_loc_format = loca.needs_long() as i16;  // XXX: 😬
@@ -141,6 +144,7 @@ where
         glyf,
         head,
         loca,
+        maxp,
         name: Name::new(),
     };
     Ok(font)

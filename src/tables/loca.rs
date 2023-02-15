@@ -28,7 +28,7 @@ impl FontTable for Loca {
             }
         } else {
             for &off in &self.offsets {
-                writer.write_u16::<BigEndian>(off as u16)?;
+                writer.write_u16::<BigEndian>(off as u16 / 2)?;
             }
         }
         Ok(())

@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, Head, Loca, MaxP, Name, name};
+use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
@@ -25,8 +25,8 @@ pub struct Font {
     cmap: CMap, // character to glyph mapping
     glyf: Glyf, // glyph data
     head: Head, // font header
-    // hhea: ?, // horizontal header
-    // hmtx: ?, // horizontal metrics
+    hhea: HHea, // horizontal header
+    hmtx: HMtx, // horizontal metrics
     loca: Loca, // index to location
     maxp: MaxP, // maximum profile
     name: Name, // naming
@@ -45,7 +45,7 @@ impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
-        let table_count = 6;
+        let table_count = 8;
         let table_ptr = 12 + table_count as u64 * 16;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
 
@@ -66,6 +66,8 @@ impl Font {
         self.write_table(&mut writer, &self.cmap)?;
         self.write_table(&mut writer, &self.glyf)?;
         self.write_table(&mut writer, &self.head)?;
+        self.write_table(&mut writer, &self.hhea)?;
+        self.write_table(&mut writer, &self.hmtx)?;
         self.write_table(&mut writer, &self.loca)?;
         self.write_table(&mut writer, &self.maxp)?;
         self.write_table(&mut writer, &self.name)?;
@@ -147,11 +149,16 @@ where
     for id in 0..=7 {
         name.push(id, "My Neat Font");
     }
+    let mut hhea = HHea::new();
+    let hmtx = HMtx::monospace(width as u16, vec![0; glyf.count_glyphs()]);
+    hhea.num_of_long_hor_metrics = hmtx.num_of_long_hor_metrics() as u16;
 
     let font = Font {
         cmap,
         glyf,
         head,
+        hhea,
+        hmtx,
         loca,
         maxp,
         name,

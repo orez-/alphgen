@@ -78,6 +78,10 @@ impl Glyf {
             max_component_depth: self.max_component_depth(),
         }
     }
+
+    pub fn count_glyphs(&self) -> usize {
+        self.glyphs.len()
+    }
 }
 
 pub(crate) struct Glyph {

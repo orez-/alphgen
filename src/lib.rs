@@ -128,6 +128,8 @@ where
     G: IntoIterator<Item=(char, Bitmap<'a>)>,
     L: IntoIterator<Item=(&'a str, Bitmap<'a>)>,
 {
+    let mut glyphs: Vec<_> = glyphs.into_iter().collect();
+    glyphs.sort();
     let (chars, bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
     let sprites = bitmaps.into_iter()
         .chain([missing_glyph])
@@ -135,7 +137,7 @@ where
     let glyf = Glyf::from(sprites);
     let loca = glyf.generate_loca();
     let maxp = glyf.generate_maxp();
-    let cmap = CMap::from_ascii_order(&chars)?;
+    let cmap = CMap::from_char_order(&chars)?;
     let mut head = Head::new();
     head.index_to_loc_format = loca.needs_long() as i16;  // XXX: 😬
 

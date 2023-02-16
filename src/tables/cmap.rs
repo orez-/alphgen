@@ -4,6 +4,7 @@ use std::io::{self, Write};
 use std::iter::zip;
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::platform::Platform;
+use crate::itertools::split_when;
 
 pub(crate) struct CMap {
     subtables: Vec<CMapSubtableRecord>,
@@ -30,6 +31,36 @@ impl CMap {
         };
         Ok(CMap { subtables: vec![record] })
     }
+
+    pub(crate) fn from_char_order(order: &[char]) -> Result<Self, ()> {
+        let order: Result<Vec<u16>, _> = order.into_iter().map(|&c| to_u16(c)).collect();
+        let mut glyph_idx = 1;
+        let segments: Vec<_> = split_when(&order?, |&a, &b| a + 1 != b)
+            .map(|slice| {
+                let start = *slice.first().expect("`split_when` should generate non-empty slices");
+                let end = *slice.last().expect("`split_when` should generate non-empty slices");
+                let range = (end - start + 1) as i16;
+                let delta = glyph_idx - start as i16;
+                glyph_idx += range;
+                Segment { start, end, delta }
+            }).chain([Segment::end_cap()])
+            .collect();
+
+        let record = CMapSubtableRecord {
+            platform: Platform::unicode_2_0(),
+            subtable: CMapSubtable::Format4 {
+                language_id: 0,
+                segments,
+            }
+        };
+        Ok(CMap { subtables: vec![record] })
+    }
+}
+
+// TODO: a real-ass error type
+fn to_u16(c: char) -> Result<u16, ()> {
+    let full = c as u32;
+    full.try_into().map_err(|_| ())
 }
 
 impl FontTable for CMap {
@@ -69,6 +100,10 @@ enum CMapSubtable {
     Format0 {
         language_id: u16,
         glyph_indexes: [u8; 256],
+    },
+    Format4 {
+        language_id: u16,
+        segments: Vec<Segment>,
     }
 }
 
@@ -82,7 +117,60 @@ impl CMapSubtable {
                 buf.write_u16::<BigEndian>(*language_id)?;
                 buf.extend(glyph_indexes);
             }
+            CMapSubtable::Format4 { language_id, segments } => {
+                let seg_count = segments.len() as u16;
+                let search_range = seg_count.next_power_of_two();
+                let entry_selector = (search_range >> 1).ilog2() as u16;
+                let range_shift = seg_count * 2 - search_range;
+                let subtable_size = 16 + 8 * seg_count;
+
+                buf.write_u16::<BigEndian>(0x0004)?;  // format
+                buf.write_u16::<BigEndian>(subtable_size)?;
+                buf.write_u16::<BigEndian>(*language_id)?;
+                buf.write_u16::<BigEndian>(seg_count * 2)?;
+                buf.write_u16::<BigEndian>(search_range)?;
+                buf.write_u16::<BigEndian>(entry_selector)?;
+                buf.write_u16::<BigEndian>(range_shift)?;
+                for segment in segments {
+                    buf.write_u16::<BigEndian>(segment.end)?;
+                }
+                buf.write_u16::<BigEndian>(0x0000)?;  // reserved pad
+                for segment in segments {
+                    buf.write_u16::<BigEndian>(segment.start)?;
+                }
+                for segment in segments {
+                    buf.write_i16::<BigEndian>(segment.delta)?;
+                }
+                // idRangeOffsets, but I do not understand how this could be helpful
+                // except to complicate your font parsing.
+                for _ in segments {
+                    buf.write_u16::<BigEndian>(0)?;
+                }
+                // glyph_id_array goes here but I do not understand its purpose.
+                // we "hardcode" it to empty.
+            }
         }
         Ok(buf.len() - original_len)
+    }
+}
+
+/// A `Segment` describes a range of character codes, and maps them
+/// to glyph indexes.
+///
+/// eg: a Segment over the character range 0x61..=0x7A ('a'..='z')
+/// with delta -0x60 maps these characters to glyphs 1..=26.
+struct Segment {
+    start: u16,
+    end: u16,
+    delta: i16,
+}
+
+impl Segment {
+    fn end_cap() -> Self {
+        Segment {
+            start: 0xffff,
+            end: 0xffff,
+            delta: 1,
+        }
     }
 }

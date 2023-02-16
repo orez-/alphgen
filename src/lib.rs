@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, Head, Loca, MaxP, Name};
+use crate::tables::{CMap, Glyf, Head, Loca, MaxP, Name, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
@@ -140,6 +140,8 @@ where
     let cmap = CMap::from_char_order(&chars)?;
     let mut head = Head::new();
     head.index_to_loc_format = loca.needs_long() as i16;  // XXX: 😬
+    let mut name = Name::new();
+    name.push(name::FONT_FAMILY, "My Neat Font");
 
     let font = Font {
         cmap,
@@ -147,7 +149,7 @@ where
         head,
         loca,
         maxp,
-        name: Name::new(),
+        name,
     };
     Ok(font)
 }

@@ -3,7 +3,7 @@ mod glyf;
 mod head;
 mod loca;
 mod maxp;
-mod name;
+pub(crate) mod name;
 
 pub(crate) use cmap::CMap;
 pub(crate) use glyf::Glyf;

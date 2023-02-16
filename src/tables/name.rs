@@ -9,10 +9,17 @@ pub(crate) struct Name {
 }
 
 impl Name {
-    // XXX: 👀
-    // ...are you allowed to just not have any names??
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Name { name_records: Vec::new() }
+    }
+
+    pub fn push(&mut self, name_id: u16, text: impl AsRef<str>) {
+        self.name_records.push(NameRecord {
+            platform: Platform::unicode_2_0(),
+            language_id: 0,
+            name_id,
+            text: text.as_ref().to_string(),
+        });
     }
 }
 
@@ -28,8 +35,8 @@ impl FontTable for Name {
 
         // offset to string storage
         // - 12 is sizeof NameRecord
-        // - 4 is this byte
-        writer.write_u16::<BigEndian>(len * 12 + 4)?;
+        // - 6 is this prefix
+        writer.write_u16::<BigEndian>(len * 12 + 6)?;
 
         let mut offset = 0;
         let mut str_buffer = Vec::new();
@@ -39,13 +46,16 @@ impl FontTable for Name {
             writer.write_u16::<BigEndian>(encoding_id)?;
             writer.write_u16::<BigEndian>(record.language_id)?;
             writer.write_u16::<BigEndian>(record.name_id)?;
-            // TODO: this needs to be UTF-16BE, NOT UTF-8, because we are in hell
-            let bytes = record.text.bytes();
-            let len = bytes.len() as u16;
+            let bytes: Vec<_> = record.text.encode_utf16().collect();
+            let len = bytes.len() as u16 * 2;
             writer.write_u16::<BigEndian>(len)?;
             writer.write_u16::<BigEndian>(offset)?;
             offset += len;
             str_buffer.extend(bytes);
+        }
+
+        for pair in str_buffer {
+            writer.write_u16::<BigEndian>(pair)?;
         }
         Ok(())
     }
@@ -57,3 +67,5 @@ struct NameRecord {
     name_id: u16,
     text: String,
 }
+
+pub const FONT_FAMILY: u16 = 1;

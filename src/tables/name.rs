@@ -15,8 +15,8 @@ impl Name {
 
     pub fn push(&mut self, name_id: u16, text: impl AsRef<str>) {
         self.name_records.push(NameRecord {
-            platform: Platform::unicode_2_0(),
-            language_id: 0,
+            platform: Platform::microsoft_bmp(),
+            language_id: ENGLISH_UNITEDSTATES,  // TODO: gross no
             name_id,
             text: text.as_ref().to_string(),
         });
@@ -68,4 +68,11 @@ struct NameRecord {
     text: String,
 }
 
+// TODO: these constants could use some types..
+// and also.. the rest of them..
+
+// Name IDs
 pub const FONT_FAMILY: u16 = 1;
+
+// Microsoft Languages
+pub const ENGLISH_UNITEDSTATES: u16 =  0x0409;

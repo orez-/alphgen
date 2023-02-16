@@ -141,7 +141,12 @@ where
     let mut head = Head::new();
     head.index_to_loc_format = loca.needs_long() as i16;  // XXX: 😬
     let mut name = Name::new();
-    name.push(name::FONT_FAMILY, "My Neat Font");
+    // name.push(name::FONT_FAMILY, "My Neat Font");
+    // TODO: I think some or all of these are required,
+    // but this makes me sad. Revisit.
+    for id in 0..=7 {
+        name.push(id, "My Neat Font");
+    }
 
     let font = Font {
         cmap,

@@ -62,7 +62,7 @@ impl Glyf {
     pub fn generate_maxp(&self) -> MaxP {
         MaxP {
             version: 0x00010000,
-            num_glyphs: self.glyphs.len() as u16,
+            num_glyphs: self.count_glyphs() as u16,
             max_points: self.max_aspect(Glyph::point_count),
             max_contours: self.max_aspect(Glyph::contour_count),
             max_component_points: self.max_aspect(Glyph::component_point_count),

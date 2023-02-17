@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, name};
+use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, Post, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
@@ -30,7 +30,7 @@ pub struct Font {
     loca: Loca, // index to location
     maxp: MaxP, // maximum profile
     name: Name, // naming
-    // post: ?, // PostScript
+    post: Post, // PostScript
 }
 
 impl Font {
@@ -45,7 +45,7 @@ impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
-        let table_count = 8;
+        let table_count = 9;
         let table_ptr = 12 + table_count as u64 * 16;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
 
@@ -71,6 +71,7 @@ impl Font {
         self.write_table(&mut writer, &self.loca)?;
         self.write_table(&mut writer, &self.maxp)?;
         self.write_table(&mut writer, &self.name)?;
+        self.write_table(&mut writer, &self.post)?;
         Ok(())
     }
 
@@ -147,11 +148,17 @@ where
     // TODO: I think some or all of these are required,
     // but this makes me sad. Revisit.
     for id in 0..=7 {
-        name.push(id, "My Neat Font");
+        if id == 2 {
+            name.push(2, "Regular");
+        } else {
+            name.push(id, "My Neat Font");
+        }
     }
     let mut hhea = HHea::new();
     let hmtx = HMtx::monospace(width as u16, vec![0; glyf.count_glyphs()]);
     hhea.num_of_long_hor_metrics = hmtx.num_of_long_hor_metrics() as u16;
+
+    let post = Post::from_ascii_order(&chars);
 
     let font = Font {
         cmap,
@@ -162,6 +169,7 @@ where
         loca,
         maxp,
         name,
+        post,
     };
     Ok(font)
 }

@@ -134,8 +134,8 @@ where
     let mut glyphs: Vec<_> = glyphs.into_iter().collect();
     glyphs.sort();
     let (chars, bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
-    let sprites = bitmaps.into_iter()
-        .chain([missing_glyph])
+    let sprites = [missing_glyph].into_iter()
+        .chain(bitmaps)
         .map(|bitmap| Sprite { width, height, data: bitmap.into() });
     let glyf = Glyf::from(sprites);
     let loca = glyf.generate_loca();

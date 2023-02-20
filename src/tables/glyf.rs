@@ -91,6 +91,8 @@ pub(crate) struct Glyph {
 
 impl Glyph {
     fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        let mut writer = CountWriter::from(writer);
+        let writer = &mut writer;
         match &self.glyph_data {
             GlyphData::Simple { instructions, contours } => {
                 let contour_count = contours.len() as u16;
@@ -139,6 +141,10 @@ impl Glyph {
                 writer.write_all(&dxs.into_inner())?;
                 writer.write_all(&dys.into_inner())?;
             }
+        }
+        // each glyph must be u16-aligned
+        if writer.count() % 2 == 1 {
+            writer.write_all(&[0x00])?;
         }
         Ok(())
     }

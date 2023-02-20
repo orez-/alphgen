@@ -147,7 +147,7 @@ where
     // name.push(name::FONT_FAMILY, "My Neat Font");
     // TODO: I think some or all of these are required,
     // but this makes me sad. Revisit.
-    for id in 0..=7 {
+    for id in (0..7).chain([10]) {
         if id == 2 {
             name.push(2, "Regular");
         } else {

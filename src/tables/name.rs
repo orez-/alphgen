@@ -20,6 +20,12 @@ impl Name {
             name_id,
             text: text.as_ref().to_string(),
         });
+        self.name_records.push(NameRecord {
+            platform: Platform::macintosh_roman(),
+            language_id: 0,  // TODO: gross no
+            name_id,
+            text: text.as_ref().to_string(),
+        });
     }
 }
 
@@ -46,17 +52,15 @@ impl FontTable for Name {
             writer.write_u16::<BigEndian>(encoding_id)?;
             writer.write_u16::<BigEndian>(record.language_id)?;
             writer.write_u16::<BigEndian>(record.name_id)?;
-            let bytes: Vec<_> = record.text.encode_utf16().collect();
-            let len = bytes.len() as u16 * 2;
+            let bytes = record.to_bytes();
+            let len = bytes.len() as u16;
             writer.write_u16::<BigEndian>(len)?;
             writer.write_u16::<BigEndian>(offset)?;
             offset += len;
             str_buffer.extend(bytes);
         }
 
-        for pair in str_buffer {
-            writer.write_u16::<BigEndian>(pair)?;
-        }
+        writer.write_all(&str_buffer)?;
         Ok(())
     }
 }
@@ -68,11 +72,24 @@ struct NameRecord {
     text: String,
 }
 
+impl NameRecord {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.platform.encode(self.language_id, &self.text)
+    }
+}
+
 // TODO: these constants could use some types..
 // and also.. the rest of them..
 
 // Name IDs
+pub const COPYRIGHT_NOTICE: u16 = 0;
 pub const FONT_FAMILY: u16 = 1;
+pub const FONT_SUBFAMILY: u16 = 2;
+pub const UNIQUE_SUBFAMILY_ID: u16 = 3;
+pub const FULL_FONT_NAME: u16 = 4;
+pub const NAME_TABLE_VERSION: u16 = 5;
+pub const POSTSCRIPT_NAME: u16 = 6;
+pub const DESCRIPTION: u16 = 10;
 
 // Microsoft Languages
 pub const ENGLISH_UNITEDSTATES: u16 =  0x0409;

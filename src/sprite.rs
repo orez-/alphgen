@@ -79,6 +79,15 @@ impl Sprite {
         if y >= self.height {
             panic!("y: {y} must be less than height {}", self.height);
         }
+        // flip both x and y:
+        // - x because we express the bits big endian (descending), but
+        //   we're reading them ascending.
+        // - y because we express the bits top to bottom (descending), but
+        //   the font format expects them ascending from a baseline.
+        // ...this perhaps should not be hardcoded
+        let x = self.width - x - 1;
+        let y = self.height - y - 1;
+
         let idx = y * self.width + x;
         let byte = idx / 8;
         let offset = idx % 8;

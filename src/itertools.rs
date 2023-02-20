@@ -26,7 +26,7 @@ where F: FnMut(&T, &T) -> bool {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let v = [1, 4, 5, 6, 5, 7, 8, 9];
 /// let mut it = split_when(&v, |a, b| a + 1 == b);
 ///

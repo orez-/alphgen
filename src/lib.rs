@@ -12,6 +12,8 @@ use crate::sprite::Sprite;
 use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
+const RECORD_SIZE: u16 = 16;
+
 // shortFrac   16-bit signed fraction
 // Fixed   16.16-bit signed fixed-point number
 // FWord   16-bit signed integer that describes a quantity in FUnits, the smallest measurable distance in em space.
@@ -47,20 +49,18 @@ impl Font {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
         let table_count = 10;
-        let table_ptr = 12 + table_count as u64 * 16;
+        let search_range = prev_power_of_two(table_count);
+        let entry_selector = search_range.ilog2() as u16;
+        let range_shift = table_count - search_range;
+        let table_ptr = 12 + (table_count * RECORD_SIZE) as u64;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
 
         // Header
-        // u32 - magic
-        writer.write_all(&[0x00, 0x01, 0x00, 0x00])?;
-        // u16 - number of tables
+        writer.write_all(&[0x00, 0x01, 0x00, 0x00])?;  // magic
         writer.write_u16::<BigEndian>(table_count)?;
-        // u16 - search range
-        writer.write_u16::<BigEndian>(0)?;
-        // u16 - entry selector
-        writer.write_u16::<BigEndian>(0)?;
-        // u16 - range shift
-        writer.write_u16::<BigEndian>(0)?;
+        writer.write_u16::<BigEndian>(search_range * RECORD_SIZE)?;
+        writer.write_u16::<BigEndian>(entry_selector)?;
+        writer.write_u16::<BigEndian>(range_shift * RECORD_SIZE)?;
 
         writer.swap()?;
         // Table Records
@@ -96,6 +96,15 @@ impl Font {
 trait FontTable {
     const TAG: &'static [u8; 4];
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()>;
+}
+
+/// Returns the largest power of two less than or equal to `num`.
+///
+/// Panics if `num == 0`
+fn prev_power_of_two(num: u16) -> u16 {
+    if num == 0 { panic!(); }
+    if num.is_power_of_two() { return num; }
+    (num >> 1).next_power_of_two()
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

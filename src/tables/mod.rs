@@ -6,6 +6,7 @@ mod hmtx;
 mod loca;
 mod maxp;
 pub(crate) mod name;
+mod os2;
 mod post;
 
 pub(crate) use cmap::CMap;
@@ -16,4 +17,5 @@ pub(crate) use hmtx::HMtx;
 pub(crate) use loca::Loca;
 pub(crate) use maxp::MaxP;
 pub(crate) use name::Name;
+pub(crate) use os2::Os2;
 pub(crate) use post::Post;

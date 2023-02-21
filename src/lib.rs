@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, Post, name};
+use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 // shortFrac   16-bit signed fraction
@@ -30,6 +30,7 @@ pub struct Font {
     loca: Loca, // index to location
     maxp: MaxP, // maximum profile
     name: Name, // naming
+    os2: Os2, // windows junk
     post: Post, // PostScript
 }
 
@@ -45,7 +46,7 @@ impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
-        let table_count = 9;
+        let table_count = 10;
         let table_ptr = 12 + table_count as u64 * 16;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
 
@@ -63,6 +64,7 @@ impl Font {
 
         writer.swap()?;
         // Table Records
+        self.write_table(&mut writer, &self.os2)?;
         self.write_table(&mut writer, &self.cmap)?;
         self.write_table(&mut writer, &self.glyf)?;
         self.write_table(&mut writer, &self.head)?;
@@ -169,6 +171,7 @@ where
         loca,
         maxp,
         name,
+        os2: Os2::default(),
         post,
     };
     Ok(font)

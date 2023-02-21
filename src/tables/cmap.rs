@@ -119,7 +119,7 @@ impl CMapSubtable {
             }
             CMapSubtable::Format4 { language_id, segments } => {
                 let seg_count = segments.len() as u16;
-                let search_range = seg_count.next_power_of_two();
+                let search_range = 2 * crate::prev_power_of_two(seg_count);
                 let entry_selector = (search_range >> 1).ilog2() as u16;
                 let range_shift = seg_count * 2 - search_range;
                 let subtable_size = 16 + 8 * seg_count;

@@ -33,6 +33,9 @@ impl FontTable for Name {
     const TAG: &'static [u8; 4] = b"name";
 
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
+        let mut name_records: Vec<&NameRecord> = self.name_records.iter().collect();
+        name_records.sort_by_key(|rec| (rec.platform.to_bytes(), rec.language_id, rec.name_id));
+
         // format
         writer.write_u16::<BigEndian>(0x0000)?;
         // number of records
@@ -46,7 +49,7 @@ impl FontTable for Name {
 
         let mut offset = 0;
         let mut str_buffer = Vec::new();
-        for record in &self.name_records {
+        for record in &name_records {
             let [platform_id, encoding_id] = record.platform.to_bytes();
             writer.write_u16::<BigEndian>(platform_id)?;
             writer.write_u16::<BigEndian>(encoding_id)?;

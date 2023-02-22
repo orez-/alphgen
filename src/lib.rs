@@ -2,6 +2,7 @@ mod itertools;
 mod platform;
 mod sprite;
 mod tables;
+mod time;
 mod writeutils;
 
 use std::path::Path;

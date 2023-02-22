@@ -1,4 +1,6 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html
+#![allow(non_upper_case_globals)]
+
 use byteorder::{BigEndian, WriteBytesExt};
 use bitflags::bitflags;
 use crate::{FontTable, Rect, TableWriter};
@@ -313,7 +315,7 @@ bitflags! {
 }
 
 fn compress_flags(flags: &[GlyphFlags]) -> Vec<u8> {
-    let Repeat = GlyphFlags::Repeat;
+    let repeat = GlyphFlags::Repeat;
     let mut out = Vec::new();
     for group in split_when(flags, |a, b| a != b) {
         let flag = group[0];
@@ -321,14 +323,14 @@ fn compress_flags(flags: &[GlyphFlags]) -> Vec<u8> {
         let full_repeats = len / 256;
         let stragglers = (len % 256) as u8;
         for _ in 0..full_repeats {
-            out.push((flag | Repeat).bits);
+            out.push((flag | repeat).bits);
             out.push(0xff);
         }
         match stragglers {
             0 => (),
             1 => out.push(flag.bits),
             c => {
-                out.push((flag | Repeat).bits);
+                out.push((flag | repeat).bits);
                 out.push(c - 1);
             }
         }

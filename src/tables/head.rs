@@ -1,4 +1,6 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6head.html
+#![allow(non_upper_case_globals)]
+
 use crate::{FontTable, Rect, TableWriter};
 use crate::time;
 use bitflags::bitflags;

@@ -14,6 +14,7 @@ fn main() {
 
 const MISSING_GLYPH: &[u8] = &0xff99a589918191ffu64.to_be_bytes();
 const GLYPHS: &[(char, &[u8])] = &[
+    (' ', &0x0000000000000000u64.to_be_bytes()),
     ('A', &0x1824427e42420000u64.to_be_bytes()),
     ('B', &0x7c427c42427c0000u64.to_be_bytes()),
     ('C', &0x3c424040423c0000u64.to_be_bytes()),

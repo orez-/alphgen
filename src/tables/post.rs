@@ -3,6 +3,8 @@ use crate::{FontTable, TableWriter};
 use std::io::{self, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 
+const NOT_DEF: GlyphId = GlyphId(0);
+
 pub(crate) struct Post {
     italic_angle: u32,
     underline_position: i16,
@@ -18,9 +20,8 @@ pub(crate) struct Post {
 impl Post {
     pub fn from_ascii_order(order: &[char]) -> Self {
         let glyphs = order.into_iter()
-            .map(|&c| to_macintosh(c)
-                .unwrap_or_else(|| panic!("unsupported character {c}")));
-        let names = [GlyphId(0)].into_iter().chain(glyphs)
+            .map(|&c| to_macintosh(c).unwrap_or(NOT_DEF));
+        let names = [NOT_DEF].into_iter().chain(glyphs)
             .map(GlyphName::Preset).collect();
         let format = PostFormat::Format2 { names };
 
@@ -58,6 +59,7 @@ impl FontTable for Post {
     }
 }
 
+#[derive(Clone, Copy)]
 struct GlyphId(u16);
 
 enum PostFormat {

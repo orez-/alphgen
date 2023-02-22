@@ -1,5 +1,6 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html
 use crate::{FontTable, TableWriter};
+use crate::bsearch::BSearch;
 use std::io::{self, Write};
 use std::iter::zip;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -119,18 +120,16 @@ impl CMapSubtable {
             }
             CMapSubtable::Format4 { language_id, segments } => {
                 let seg_count = segments.len() as u16;
-                let search_range = 2 * crate::prev_power_of_two(seg_count);
-                let entry_selector = (search_range >> 1).ilog2() as u16;
-                let range_shift = seg_count * 2 - search_range;
+                let bsearch = BSearch::from(seg_count, 2);
                 let subtable_size = 16 + 8 * seg_count;
 
                 buf.write_u16::<BigEndian>(0x0004)?;  // format
                 buf.write_u16::<BigEndian>(subtable_size)?;
                 buf.write_u16::<BigEndian>(*language_id)?;
-                buf.write_u16::<BigEndian>(seg_count * 2)?;
-                buf.write_u16::<BigEndian>(search_range)?;
-                buf.write_u16::<BigEndian>(entry_selector)?;
-                buf.write_u16::<BigEndian>(range_shift)?;
+                buf.write_u16::<BigEndian>(bsearch.len)?;
+                buf.write_u16::<BigEndian>(bsearch.search_range)?;
+                buf.write_u16::<BigEndian>(bsearch.entry_selector)?;
+                buf.write_u16::<BigEndian>(bsearch.range_shift)?;
                 for segment in segments {
                     buf.write_u16::<BigEndian>(segment.end)?;
                 }

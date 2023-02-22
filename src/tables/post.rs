@@ -1,3 +1,4 @@
+// https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6post.html
 use crate::{FontTable, TableWriter};
 use std::io::{self, Write};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -17,7 +18,8 @@ pub(crate) struct Post {
 impl Post {
     pub fn from_ascii_order(order: &[char]) -> Self {
         let glyphs = order.into_iter()
-            .map(|&c| to_macintosh(c).unwrap());
+            .map(|&c| to_macintosh(c)
+                .unwrap_or_else(|| panic!("unsupported character {c}")));
         let names = [GlyphId(0)].into_iter().chain(glyphs)
             .map(GlyphName::Preset).collect();
         let format = PostFormat::Format2 { names };
@@ -116,7 +118,11 @@ fn to_macintosh(c: char) -> Option<GlyphId> {
     let lookup =
         " !\"#$%&'()*+,-./0123456789:;<=>?@\
         ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`\
-        abcdefghijklmnopqrstuvwxyz{|}~";
+        abcdefghijklmnopqrstuvwxyz{|}~\
+        ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü\
+        †˚¢£§•¶ß®©™´¨≠åÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø\
+        ¿¡¬√ƒ≈Δ«»… ÁÃÕŒœ–—“”‘’÷◊ÿŸ⁄¤‹›ﬁﬂ\
+        ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔÒÚÛÙı";
     lookup.chars()
         .position(|x| x == c)
         .map(|x| GlyphId(x as u16 + 3))

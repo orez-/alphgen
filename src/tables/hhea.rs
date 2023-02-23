@@ -20,7 +20,7 @@ pub(crate) struct HHea {
 impl HHea {
     pub fn new() -> Self {
         HHea {
-            ascent: 0,
+            ascent: 9,
             descent: 0,
             line_gap: 0,
             advance_width_max: 8,

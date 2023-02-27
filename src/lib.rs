@@ -15,6 +15,9 @@ use crate::sprite::Sprite;
 use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GlyphId(u16);
+
 const RECORD_SIZE: u16 = 16;
 
 // shortFrac   16-bit signed fraction

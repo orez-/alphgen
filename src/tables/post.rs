@@ -1,5 +1,5 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6post.html
-use crate::{FontTable, TableWriter};
+use crate::{FontTable, GlyphId, TableWriter};
 use std::io::{self, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 
@@ -58,9 +58,6 @@ impl FontTable for Post {
         Ok(())
     }
 }
-
-#[derive(Clone, Copy)]
-struct GlyphId(u16);
 
 enum PostFormat {
     Format2 {

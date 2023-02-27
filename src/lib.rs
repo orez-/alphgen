@@ -2,6 +2,7 @@ mod bsearch;
 mod itertools;
 mod platform;
 mod sprite;
+mod subtable;
 mod tables;
 mod time;
 mod writeutils;
@@ -12,7 +13,7 @@ use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use bsearch::BSearch;
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
+use crate::tables::{CMap, Glyf, GSub, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -32,6 +33,7 @@ const RECORD_SIZE: u16 = 16;
 pub struct Font {
     cmap: CMap, // character to glyph mapping
     glyf: Glyf, // glyph data
+    gsub: GSub, // ligature data
     head: Head, // font header
     hhea: HHea, // horizontal header
     hmtx: HMtx, // horizontal metrics
@@ -54,7 +56,7 @@ impl Font {
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
         // but hardcoding the length like this is almost surely Not It.
-        let table_count = 10;
+        let table_count = 11;
         let bsearch = BSearch::from(table_count, RECORD_SIZE);
         let table_ptr = 12 + (table_count * RECORD_SIZE) as u64;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
@@ -71,6 +73,7 @@ impl Font {
         self.write_table(&mut writer, &self.os2)?;
         self.write_table(&mut writer, &self.cmap)?;
         self.write_table(&mut writer, &self.glyf)?;
+        self.write_table(&mut writer, &self.gsub)?;
         self.write_table(&mut writer, &self.head)?;
         self.write_table(&mut writer, &self.hhea)?;
         self.write_table(&mut writer, &self.hmtx)?;
@@ -132,16 +135,18 @@ impl Rect {
 
 type Bitmap<'a> = &'a [u8];
 
-pub fn bitmap_font<'a, G, L>(width: usize, height: usize, missing_glyph: Bitmap<'a>, glyphs: G, _ligatures: L) -> Result<Font, ()>
+pub fn bitmap_font<'a, G, L>(width: usize, height: usize, missing_glyph: Bitmap<'a>, glyphs: G, ligatures: L) -> Result<Font, ()>
 where
     G: IntoIterator<Item=(char, Bitmap<'a>)>,
     L: IntoIterator<Item=(&'a str, Bitmap<'a>)>,
 {
     let mut glyphs: Vec<_> = glyphs.into_iter().collect();
     glyphs.sort();
-    let (chars, bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
+    let (chars, glyph_bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
+    let (combos, ligature_bitmaps): (Vec<_>, Vec<_>) = ligatures.into_iter().unzip();
     let sprites = [missing_glyph].into_iter()
-        .chain(bitmaps)
+        .chain(glyph_bitmaps)
+        .chain(ligature_bitmaps)
         .map(|bitmap| Sprite { width, height, data: bitmap.into() });
     let glyf = Glyf::from(sprites);
     let loca = glyf.generate_loca();
@@ -165,10 +170,12 @@ where
     hhea.num_of_long_hor_metrics = hmtx.num_of_long_hor_metrics() as u16;
 
     let post = Post::from_ascii_order(&chars);
+    let gsub = GSub { };
 
     let font = Font {
         cmap,
         glyf,
+        gsub,
         head,
         hhea,
         hmtx,

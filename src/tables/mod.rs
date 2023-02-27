@@ -1,5 +1,6 @@
 mod cmap;
 mod glyf;
+mod gsub;
 mod head;
 mod hhea;
 mod hmtx;
@@ -11,6 +12,7 @@ mod post;
 
 pub(crate) use cmap::CMap;
 pub(crate) use glyf::Glyf;
+pub(crate) use gsub::GSub;
 pub(crate) use head::Head;
 pub(crate) use hhea::HHea;
 pub(crate) use hmtx::HMtx;

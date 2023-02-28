@@ -1,5 +1,4 @@
 use byteorder::{BigEndian, WriteBytesExt};
-use crate::writeutils::CountWriter;
 use std::io::{self, Cursor, Write};
 
 /// Writer adapter for font subtables.
@@ -8,7 +7,7 @@ use std::io::{self, Cursor, Write};
 ///     byte_offset_to_entries: Vec<u16>
 ///     entries: <variable>
 pub(crate) struct Subtable<W: Write> {
-    writer: CountWriter<W>,
+    writer: W,
     body_offset: u16,
     body: Cursor<Vec<u8>>,
 }
@@ -16,7 +15,7 @@ pub(crate) struct Subtable<W: Write> {
 impl<W: Write> Subtable<W> {
     pub fn new(writer: W, body_offset: u16) -> Subtable<W> {
         Subtable {
-            writer: CountWriter::from(writer),
+            writer,
             body_offset,
             body: Default::default(),
         }
@@ -31,7 +30,6 @@ impl<W: Write> Subtable<W> {
     }
 
     pub fn finalize(mut self) -> io::Result<()> {
-        assert_eq!(self.writer.count(), self.body_offset as usize);
         self.writer.write_all(&self.body.into_inner())
     }
 }

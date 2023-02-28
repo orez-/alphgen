@@ -170,7 +170,7 @@ where
     hhea.num_of_long_hor_metrics = hmtx.num_of_long_hor_metrics() as u16;
 
     let post = Post::from_ascii_order(&chars);
-    let gsub = GSub { };
+    let gsub = GSub::new();
 
     let font = Font {
         cmap,

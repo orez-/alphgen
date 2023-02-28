@@ -5,44 +5,93 @@ use byteorder::{BigEndian, WriteBytesExt};
 use crate::{FontTable, GlyphId, TableWriter};
 use crate::itertools::split_when;
 use crate::subtable::Subtable;
-use std::io::{self, Write, Cursor};
+use std::io::{self, Write};
 
 pub(crate) struct GSub {
-    // scripts:
-    // features:
-    // lookup:
+    scripts: ScriptListTable,
+    features: FeatureListTable,
+    lookup: LookupListTable,
 }
 
 impl FontTable for GSub {
     const TAG: &'static [u8; 4] = b"GSUB";
 
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
-        writer.write_u32::<BigEndian>(0x00010000)?;  // version
-        // scripts:  // offset u16 from gsub start
-        // features: // offset u16 from gsub start
-        // lookup: // offset u16 from gsub start
+        let mut subtable = Subtable::new(writer, 14);
+        {
+            let mut header = subtable.header();
+            header.write_u32::<BigEndian>(0x00010000)?;  // version
+            header.mark_offset()?;  // scripts offset
+        }
+        self.scripts.write(subtable.body())?;
+        subtable.header().mark_offset()?;  // features offset
+        self.features.write(subtable.body())?;
+        subtable.header().mark_offset()?;  // lookup offset
+        self.lookup.write(subtable.body())?;
+        subtable.finalize()
+    }
+}
+
+impl GSub {
+    pub fn new() -> Self {
+        GSub {
+            scripts: ScriptListTable,
+            features: FeatureListTable,
+            lookup: LookupListTable { list: Vec::new() },
+        }
+    }
+}
+
+struct LookupListTable {
+    list: Vec<LookupTable>
+}
+
+impl LookupListTable {
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#lookup-list-table
+    fn write<W: Write>(&self, writer: W) -> io::Result<()> {
+        // intentionally 0: it's offset from the start of the list itself.
+        let mut subtable = Subtable::new(writer, 0);
+        subtable.header().write_u16::<BigEndian>(self.list.len() as u16)?;
+        for tbl in &self.list {
+            subtable.header().mark_offset()?;
+            tbl.write(&mut subtable.body())?;
+        }
         Ok(())
     }
 }
 
-struct LookupTableList {
-    list: Vec<LookupTable>
-}
-
 struct LookupTable {
-    // lookup_type: u16,  // Different enumerations for GSUB and GPOS
-    lookup_flag: LookupFlags,  // Lookup qualifiers
-    // sub_table_count: u16,  // Number of subtables for this lookup
-    // subtable_offsets: u16,  // Array of offsets to lookup subtables, from beginning of Lookup table
+    lookup_flag: LookupFlags,
     subtable: LookupSubtable,
-    mark_filtering_set: u16,
 }
 
 impl LookupTable {
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#lookup-table
+    fn write<W: Write>(&self, writer: W) -> io::Result<()> {
+        // As near as i can tell, there's no meaningful distinction between
+        // the list of subtables here and the list of subtables on the next layer down.
+        // It's not like this one can be a mix of different types or anything,
+        // the type is homogeneous on _this_ level! 🙃
+        //
+        // Hardcode table len 1 here i guess!!
+        let subtable_count = 1;
+
+        // XXX: +2 if markFilteringSet. see below
+        let offset = 6 + 2 * subtable_count;
+        let mut subtable = Subtable::new(writer, offset);
         let lookup_type = self.subtable.lookup_type();
-        writer.write_u16::<BigEndian>(lookup_type)?;
-        Ok(())
+        {
+            let mut header = subtable.header();
+            header.write_u16::<BigEndian>(lookup_type)?;
+            header.write_u16::<BigEndian>(self.lookup_flag.bits)?;
+            header.write_u16::<BigEndian>(subtable_count)?;
+            header.mark_offset()?;
+        }
+        self.subtable.write(subtable.body())?;
+
+        // XXX: we'd need to write a markFilteringSet u16 here when
+        // the corresponding LookupFlag is set. Currently unsupported.
+        subtable.finalize()
     }
 }
 
@@ -52,7 +101,7 @@ bitflags! {
         const IGNORE_BASE_GLYPHS = 1 << 1;
         const IGNORE_LIGATURES = 1 << 2;
         const IGNORE_MARKS = 1 << 3;
-        const USE_MARK_FILTERING_SET = 1 << 4;
+        // const USE_MARK_FILTERING_SET = 1 << 4;
         // const MARK_ATTACHMENT_TYPE_MASK = 0xFF00;  // ????????
     }
 }
@@ -60,10 +109,11 @@ bitflags! {
 enum LookupSubtable {
     // TODO: these gotta be sorted.
     // how do we enforce this?
-    LigatureSubst(Vec<(Vec<GlyphId>, GlyphId)>),
+    LigatureSubst(Vec<Ligature>),
 }
 
 const SET_RECORD_SIZE: u16 = 2;
+type Ligature = (Vec<GlyphId>, GlyphId);
 
 impl LookupSubtable {
     fn lookup_type(&self) -> u16 {
@@ -72,10 +122,11 @@ impl LookupSubtable {
         }
     }
 
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write<W: Write>(&self, writer: W) -> io::Result<()> {
         match self {
+            // https://learn.microsoft.com/en-us/typography/opentype/spec/gsub#41-ligature-substitution-format-1
             Self::LigatureSubst(subs) => {
-                let ligature_sets: Vec<_> = split_when(
+                let ligature_sets: Vec<&[Ligature]> = split_when(
                     subs,
                     |(a, _), (b, _)| a.first() != b.first()
                 ).collect();
@@ -86,7 +137,7 @@ impl LookupSubtable {
                 {
                     let mut header = subtable.header();
                     header.write_u16::<BigEndian>(1)?;  // version
-                    header.mark_offset()?;
+                    header.mark_offset()?;  // offset to coverage table
                     header.write_u16::<BigEndian>(ligature_set_count)?;
                 }
 
@@ -102,26 +153,32 @@ impl LookupSubtable {
 
                 for &set in &ligature_sets {
                     subtable.header().mark_offset()?;
-                    let lig_count = set.len() as u16;
-                    let offset = 2 + lig_count * 2;
-                    let mut ligset = Subtable::new(subtable.body(), offset);
-                    ligset.header().write_u16::<BigEndian>(lig_count)?;
-                    for &(ref pattern, replacement) in set {
-                        ligset.header().mark_offset()?;
-                        let mut body = ligset.body();
-                        body.write_u16::<BigEndian>(replacement.0)?;
-                        body.write_u16::<BigEndian>(pattern.len() as u16)?;
-                        for &glyph in &pattern[1..] {
-                            body.write_u16::<BigEndian>(glyph.0)?;
-                        }
-                    }
-                    ligset.finalize()?;
+                    write_ligature_set(set, subtable.body())?;
                 }
                 subtable.finalize()?;
             }
         }
         Ok(())
     }
+}
+
+fn write_ligature_set<W: Write>(set: &[Ligature], writer: W) -> io::Result<()> {
+    let lig_count = set.len() as u16;
+    let offset = 2 + lig_count * 2;
+    let mut ligset = Subtable::new(writer, offset);
+    ligset.header().write_u16::<BigEndian>(lig_count)?;
+    for &(ref pattern, replacement) in set {
+        ligset.header().mark_offset()?;  // ligature offset
+        let mut body = ligset.body();
+        body.write_u16::<BigEndian>(replacement.0)?;  // output glyph id
+        body.write_u16::<BigEndian>(pattern.len() as u16)?;  // component count
+        // note that we skip the first glyph in the ligature,
+        // since it's encoded in the Coverage table
+        for &glyph in &pattern[1..] {
+            body.write_u16::<BigEndian>(glyph.0)?;  // component glyph id
+        }
+    }
+    ligset.finalize()
 }
 
 // ===
@@ -132,7 +189,7 @@ enum Coverage {
 }
 
 impl Coverage {
-    fn write<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
         match self {
             // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#coverage-format-1
             Coverage::List(glyph_ids) => {
@@ -144,5 +201,23 @@ impl Coverage {
             }
         }
         Ok(())
+    }
+}
+
+// ===
+
+struct ScriptListTable;
+impl ScriptListTable {
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#slTbl_sRec
+    fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u16::<BigEndian>(0)  // number of records
+    }
+}
+
+struct FeatureListTable;
+impl FeatureListTable {
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#flTbl
+    fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u16::<BigEndian>(0)  // number of records
     }
 }

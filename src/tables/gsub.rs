@@ -4,7 +4,7 @@ use bitflags::bitflags;
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::{FontTable, GlyphId, TableWriter};
 use crate::itertools::split_when;
-use crate::subtable::Subtable;
+use crate::subtable::SubtableBuffer;
 use std::io::{self, Write};
 
 pub(crate) struct GSub {
@@ -17,7 +17,7 @@ impl FontTable for GSub {
     const TAG: &'static [u8; 4] = b"GSUB";
 
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
-        let mut subtable = Subtable::new(writer, 14);
+        let mut subtable = SubtableBuffer::new(14);
         {
             let mut header = subtable.header();
             header.write_u32::<BigEndian>(0x00010000)?;  // version
@@ -28,7 +28,7 @@ impl FontTable for GSub {
         self.features.write(subtable.body())?;
         subtable.header().mark_offset()?;  // lookup offset
         self.lookup.write(subtable.body())?;
-        subtable.finalize()
+        subtable.write(writer)
     }
 }
 
@@ -50,13 +50,13 @@ impl LookupListTable {
     // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#lookup-list-table
     fn write<W: Write>(&self, writer: W) -> io::Result<()> {
         // intentionally 0: it's offset from the start of the list itself.
-        let mut subtable = Subtable::new(writer, 0);
+        let mut subtable = SubtableBuffer::new(0);
         subtable.header().write_u16::<BigEndian>(self.list.len() as u16)?;
         for tbl in &self.list {
             subtable.header().mark_offset()?;
             tbl.write(&mut subtable.body())?;
         }
-        Ok(())
+        subtable.write(writer)
     }
 }
 
@@ -78,7 +78,7 @@ impl LookupTable {
 
         // XXX: +2 if markFilteringSet. see below
         let offset = 6 + 2 * subtable_count;
-        let mut subtable = Subtable::new(writer, offset);
+        let mut subtable = SubtableBuffer::new(offset);
         let lookup_type = self.subtable.lookup_type();
         {
             let mut header = subtable.header();
@@ -91,7 +91,7 @@ impl LookupTable {
 
         // XXX: we'd need to write a markFilteringSet u16 here when
         // the corresponding LookupFlag is set. Currently unsupported.
-        subtable.finalize()
+        subtable.write(writer)
     }
 }
 
@@ -133,7 +133,7 @@ impl LookupSubtable {
                 let ligature_set_count = ligature_sets.len() as u16;
                 // offset to coverage table
                 let offset = 4 + SET_RECORD_SIZE * ligature_set_count;
-                let mut subtable = Subtable::new(writer, offset);
+                let mut subtable = SubtableBuffer::new(offset);
                 {
                     let mut header = subtable.header();
                     header.write_u16::<BigEndian>(1)?;  // version
@@ -155,7 +155,7 @@ impl LookupSubtable {
                     subtable.header().mark_offset()?;
                     write_ligature_set(set, subtable.body())?;
                 }
-                subtable.finalize()?;
+                subtable.write(writer)?;
             }
         }
         Ok(())
@@ -165,7 +165,7 @@ impl LookupSubtable {
 fn write_ligature_set<W: Write>(set: &[Ligature], writer: W) -> io::Result<()> {
     let lig_count = set.len() as u16;
     let offset = 2 + lig_count * 2;
-    let mut ligset = Subtable::new(writer, offset);
+    let mut ligset = SubtableBuffer::new(offset);
     ligset.header().write_u16::<BigEndian>(lig_count)?;
     for &(ref pattern, replacement) in set {
         ligset.header().mark_offset()?;  // ligature offset
@@ -178,7 +178,7 @@ fn write_ligature_set<W: Write>(set: &[Ligature], writer: W) -> io::Result<()> {
             body.write_u16::<BigEndian>(glyph.0)?;  // component glyph id
         }
     }
-    ligset.finalize()
+    ligset.write(writer)
 }
 
 // ===

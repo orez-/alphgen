@@ -33,28 +33,30 @@ impl FontTable for GSub {
 }
 
 impl GSub {
-    pub fn new(mut ligatures: Vec<Ligature>) -> Self {
+    pub fn new(mut ligatures: Vec<Ligature>) -> Option<Self> {
+        if ligatures.is_empty() { return None; }
         ligatures.sort_unstable();
-        let list;
-        let features;
-        if ligatures.is_empty() {
-            list = Vec::new();
-            features = Vec::new();
-        } else {
-            list = vec![LookupTable {
-                lookup_flag: LookupFlags::empty(),
-                subtable: LookupSubtable::LigatureSubst(ligatures),
-            }];
-            features = vec![FeatureTable {
-                tag: *b"liga",
-                lookup_list_indices: vec![0],
-            }];
-        }
-        GSub {
-            scripts: ScriptListTable,
+        let list = vec![LookupTable {
+            lookup_flag: LookupFlags::empty(),
+            subtable: LookupSubtable::LigatureSubst(ligatures),
+        }];
+        let features = vec![FeatureTable {
+            tag: *b"liga",
+            lookup_list_indices: vec![0],
+        }];
+        let scripts = vec![ScriptTable {
+            default: Some(LangSysTable {
+                reqd_feature_idx: 0,
+                feature_list_indices: Vec::new(),
+            }),
+            script_tag: *b"DFLT",
+            lang_sys: Vec::new(),
+        }];
+        Some(GSub {
+            scripts: ScriptListTable { scripts },
             features: FeatureListTable { features },
             lookup: LookupListTable { list },
-        }
+        })
     }
 }
 
@@ -125,6 +127,8 @@ bitflags! {
 enum LookupSubtable {
     // TODO: these gotta be sorted.
     // how do we enforce this?
+    // > Ligatures with more components must be stored ahead of those
+    // > with fewer components in order to be found.
     LigatureSubst(Vec<Ligature>),
 }
 
@@ -222,11 +226,67 @@ impl Coverage {
 
 // ===
 
-struct ScriptListTable;
+struct ScriptListTable {
+    scripts: Vec<ScriptTable>,
+}
+
 impl ScriptListTable {
     // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#slTbl_sRec
+    fn write<W: Write>(&self, writer: W) -> io::Result<()> {
+        let len = self.scripts.len() as u16;
+        let mut subtable = SubtableBuffer::new(2 + 6 * len);
+        subtable.header().write_u16::<BigEndian>(len)?;
+        for feature in &self.scripts {
+            subtable.header().write_all(&feature.script_tag)?;
+            subtable.header().mark_offset()?;
+            feature.write(subtable.body())?;
+        }
+        subtable.write(writer)
+    }
+}
+
+struct ScriptTable {
+    script_tag: [u8; 4],
+    default: Option<LangSysTable>,
+    lang_sys: Vec<([u8; 4], LangSysTable)>,
+}
+
+impl ScriptTable {
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#script-table-and-language-system-record
+    fn write<W: Write>(&self, writer: W) -> io::Result<()> {
+        let len = self.lang_sys.len() as u16;
+        let mut subtable = SubtableBuffer::new(4 + 6 * len);
+        if let Some(lang_sys) = &self.default {
+            subtable.header().mark_offset()?;
+            lang_sys.write(subtable.body())?;
+        } else {
+            subtable.header().write_u16::<BigEndian>(0)?;  // null
+        }
+        subtable.header().write_u16::<BigEndian>(len)?;
+        for (tag, ls) in &self.lang_sys {
+            subtable.header().write_all(tag)?;
+            subtable.header().mark_offset()?;
+            ls.write(subtable.body())?;
+        }
+        subtable.write(writer)
+    }
+}
+
+struct LangSysTable {
+    reqd_feature_idx: u16,
+    feature_list_indices: Vec<u16>,
+}
+
+impl LangSysTable {
+    // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#language-system-table
     fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_u16::<BigEndian>(0)  // number of records
+        writer.write_u16::<BigEndian>(0)?;  // reserved null byte
+        writer.write_u16::<BigEndian>(self.reqd_feature_idx)?;
+        writer.write_u16::<BigEndian>(self.feature_list_indices.len() as u16)?;
+        for &idx in &self.feature_list_indices {
+            writer.write_u16::<BigEndian>(idx)?;
+        }
+        Ok(())
     }
 }
 

@@ -33,7 +33,7 @@ const RECORD_SIZE: u16 = 16;
 pub struct Font {
     cmap: CMap, // character to glyph mapping
     glyf: Glyf, // glyph data
-    gsub: GSub, // ligature data
+    gsub: Option<GSub>, // ligature data
     head: Head, // font header
     hhea: HHea, // horizontal header
     hmtx: HMtx, // horizontal metrics
@@ -55,8 +55,9 @@ impl Font {
     /// Encode this font and write it to `writer`.
     pub fn write_to<W: Write + Seek>(&self, writer: &mut W) -> io::Result<()> {
         // TODO: I don't know what the best way to represent these tables is,
-        // but hardcoding the length like this is almost surely Not It.
-        let table_count = 11;
+        // but hardcoding the length like this is almost surely Not It,
+        // especially now that it's starting to be conditional.
+        let table_count = 10 + self.gsub.is_some() as u16;
         let bsearch = BSearch::from(table_count, RECORD_SIZE);
         let table_ptr = 12 + (table_count * RECORD_SIZE) as u64;
         let mut writer = TwoWrite::split_at(writer, table_ptr);
@@ -70,7 +71,9 @@ impl Font {
 
         writer.swap()?;
         // Table Records
-        self.write_table(&mut writer, &self.gsub)?;
+        if let Some(gsub) = &self.gsub {
+            self.write_table(&mut writer, gsub)?;
+        }
         self.write_table(&mut writer, &self.os2)?;
         self.write_table(&mut writer, &self.cmap)?;
         self.write_table(&mut writer, &self.glyf)?;

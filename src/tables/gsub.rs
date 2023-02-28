@@ -33,11 +33,20 @@ impl FontTable for GSub {
 }
 
 impl GSub {
-    pub fn new() -> Self {
+    pub fn new(mut ligatures: Vec<Ligature>) -> Self {
+        ligatures.sort_unstable();
+        let list = if ligatures.is_empty() {
+            Vec::new()
+        } else {
+            vec![LookupTable {
+                lookup_flag: LookupFlags::empty(),
+                subtable: LookupSubtable::LigatureSubst(ligatures),
+            }]
+        };
         GSub {
             scripts: ScriptListTable,
             features: FeatureListTable,
-            lookup: LookupListTable { list: Vec::new() },
+            lookup: LookupListTable { list },
         }
     }
 }

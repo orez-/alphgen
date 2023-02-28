@@ -16,7 +16,7 @@ use crate::sprite::Sprite;
 use crate::tables::{CMap, Glyf, GSub, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
 use crate::writeutils::{TableWriter, TwoWrite};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct GlyphId(u16);
 
 const RECORD_SIZE: u16 = 16;
@@ -70,10 +70,10 @@ impl Font {
 
         writer.swap()?;
         // Table Records
+        self.write_table(&mut writer, &self.gsub)?;
         self.write_table(&mut writer, &self.os2)?;
         self.write_table(&mut writer, &self.cmap)?;
         self.write_table(&mut writer, &self.glyf)?;
-        self.write_table(&mut writer, &self.gsub)?;
         self.write_table(&mut writer, &self.head)?;
         self.write_table(&mut writer, &self.hhea)?;
         self.write_table(&mut writer, &self.hmtx)?;
@@ -144,6 +144,7 @@ where
     glyphs.sort();
     let (chars, glyph_bitmaps): (Vec<_>, Vec<_>) = glyphs.into_iter().unzip();
     let (combos, ligature_bitmaps): (Vec<_>, Vec<_>) = ligatures.into_iter().unzip();
+    let ligature_offset = glyph_bitmaps.len() as u16 + 1;
     let sprites = [missing_glyph].into_iter()
         .chain(glyph_bitmaps)
         .chain(ligature_bitmaps)
@@ -169,8 +170,23 @@ where
     let hmtx = HMtx::monospace(width as u16, vec![0; glyf.count_glyphs()]);
     hhea.num_of_long_hor_metrics = hmtx.num_of_long_hor_metrics() as u16;
 
-    let post = Post::from_ascii_order(&chars);
-    let gsub = GSub::new();
+    let post = Post::from_ascii_order(&chars, glyf.count_glyphs());
+
+    type Ligature = (Vec<GlyphId>, GlyphId);
+    let ligatures: Vec<Ligature> = combos.into_iter()
+        .zip(ligature_offset..)
+        .map(|(seq, idx)| {
+            let pattern: Vec<_> = seq.chars()
+                .map(|chr|
+                    chars.iter()
+                        .position(|&c| c == chr)  // XXX: probably make a lookup.
+                        .expect("ligature must be made up of glyphs that exist in the font")
+                        as u16 + 1
+                ).map(GlyphId)
+                .collect();
+            (pattern, GlyphId(idx))
+        }).collect();
+    let gsub = GSub::new(ligatures);
 
     let font = Font {
         cmap,

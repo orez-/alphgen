@@ -2,7 +2,6 @@
 use crate::{FontTable, TableWriter};
 use crate::bsearch::BSearch;
 use std::io::{self, Write};
-use std::iter::zip;
 use byteorder::{BigEndian, WriteBytesExt};
 use crate::platform::Platform;
 use crate::itertools::split_when;
@@ -12,27 +11,6 @@ pub(crate) struct CMap {
 }
 
 impl CMap {
-    pub(crate) fn from_ascii_order(order: &[char]) -> Result<Self, ()> {
-        assert!(order.len() <= 255);
-
-        let mut glyph_indexes = [0; 256];
-        for (loca_idx, &chr) in zip(1.., order) {
-            let gidx: u8 = chr.try_into()
-                .map_err(|_| ())?;
-            let gidx = gidx as usize;
-            glyph_indexes[gidx] = loca_idx;
-        }
-
-        let record = CMapSubtableRecord {
-            platform: Platform::unicode_2_0(),
-            subtable: CMapSubtable::Format0 {
-                language_id: 0,
-                glyph_indexes,
-            }
-        };
-        Ok(CMap { subtables: vec![record] })
-    }
-
     pub(crate) fn from_char_order(order: &[char]) -> Result<Self, ()> {
         let order: Result<Vec<u16>, _> = order.into_iter().map(|&c| to_u16(c)).collect();
         let mut glyph_idx = 1;

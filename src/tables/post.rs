@@ -1,6 +1,7 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6post.html
 use crate::{FontTable, GlyphId, TableWriter};
 use std::io::{self, Write};
+use std::iter::repeat;
 use byteorder::{BigEndian, WriteBytesExt};
 
 const NOT_DEF: GlyphId = GlyphId(0);
@@ -18,11 +19,16 @@ pub(crate) struct Post {
 }
 
 impl Post {
-    pub fn from_ascii_order(order: &[char]) -> Self {
+    pub fn from_ascii_order(order: &[char], count: usize) -> Self {
+        let diff = count.checked_sub(order.len()+1)
+            .expect("count must be > order.len()");
         let glyphs = order.into_iter()
             .map(|&c| to_macintosh(c).unwrap_or(NOT_DEF));
-        let names = [NOT_DEF].into_iter().chain(glyphs)
-            .map(GlyphName::Preset).collect();
+        let names: Vec<_> = [NOT_DEF].into_iter().chain(glyphs)
+            .chain(repeat(NOT_DEF).take(diff))
+            .map(GlyphName::Preset)
+            .collect();
+        assert_eq!(names.len(), count);
         let format = PostFormat::Format2 { names };
 
         // TODO: don't hardcode the first four here.

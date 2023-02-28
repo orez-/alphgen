@@ -30,6 +30,7 @@ impl SubtableBuffer {
     }
 
     pub fn write<W: Write>(self, mut writer: W) -> io::Result<()> {
+        assert_eq!(self.body_offset as u64, self.header.position());
         writer.write_all(&self.header.into_inner())?;
         writer.write_all(&self.body.into_inner())?;
         Ok(())

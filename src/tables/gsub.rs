@@ -17,7 +17,7 @@ impl FontTable for GSub {
     const TAG: &'static [u8; 4] = b"GSUB";
 
     fn write<W: Write>(&self, writer: &mut TableWriter<W>) -> io::Result<()> {
-        let mut subtable = SubtableBuffer::new(14);
+        let mut subtable = SubtableBuffer::new(10);
         {
             let mut header = subtable.header();
             header.write_u32::<BigEndian>(0x00010000)?;  // version
@@ -58,9 +58,9 @@ struct LookupListTable {
 impl LookupListTable {
     // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#lookup-list-table
     fn write<W: Write>(&self, writer: W) -> io::Result<()> {
-        // intentionally 0: it's offset from the start of the list itself.
-        let mut subtable = SubtableBuffer::new(0);
-        subtable.header().write_u16::<BigEndian>(self.list.len() as u16)?;
+        let len = self.list.len() as u16;
+        let mut subtable = SubtableBuffer::new(2 + len * 2);
+        subtable.header().write_u16::<BigEndian>(len)?;
         for tbl in &self.list {
             subtable.header().mark_offset()?;
             tbl.write(&mut subtable.body())?;
@@ -141,7 +141,7 @@ impl LookupSubtable {
                 ).collect();
                 let ligature_set_count = ligature_sets.len() as u16;
                 // offset to coverage table
-                let offset = 4 + SET_RECORD_SIZE * ligature_set_count;
+                let offset = 6 + SET_RECORD_SIZE * ligature_set_count;
                 let mut subtable = SubtableBuffer::new(offset);
                 {
                     let mut header = subtable.header();

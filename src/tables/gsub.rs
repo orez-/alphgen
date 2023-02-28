@@ -35,17 +35,24 @@ impl FontTable for GSub {
 impl GSub {
     pub fn new(mut ligatures: Vec<Ligature>) -> Self {
         ligatures.sort_unstable();
-        let list = if ligatures.is_empty() {
-            Vec::new()
+        let list;
+        let features;
+        if ligatures.is_empty() {
+            list = Vec::new();
+            features = Vec::new();
         } else {
-            vec![LookupTable {
+            list = vec![LookupTable {
                 lookup_flag: LookupFlags::empty(),
                 subtable: LookupSubtable::LigatureSubst(ligatures),
-            }]
-        };
+            }];
+            features = vec![FeatureTable {
+                tag: *b"liga",
+                lookup_list_indices: vec![0],
+            }];
+        }
         GSub {
             scripts: ScriptListTable,
-            features: FeatureListTable,
+            features: FeatureListTable { features },
             lookup: LookupListTable { list },
         }
     }
@@ -223,10 +230,41 @@ impl ScriptListTable {
     }
 }
 
-struct FeatureListTable;
+struct FeatureListTable {
+    features: Vec<FeatureTable>,
+}
+
 impl FeatureListTable {
     // https://learn.microsoft.com/en-us/typography/opentype/spec/chapter2#flTbl
+    fn write<W: Write>(&self, writer: W) -> io::Result<()> {
+        let len = self.features.len() as u16;
+        let mut subtable = SubtableBuffer::new(2 + 6 * len);
+        subtable.header().write_u16::<BigEndian>(len)?;
+        for feature in &self.features {
+            subtable.header().write_all(&feature.tag)?;
+            subtable.header().mark_offset()?;
+            feature.write(subtable.body())?;
+        }
+        subtable.write(writer)
+    }
+}
+
+struct FeatureTable {
+    tag: [u8; 4],  // 4-byte feature identification tag
+    lookup_list_indices: Vec<u16>, // Array of indices into the LookupList — zero-based (first lookup is LookupListIndex = 0)
+}
+
+impl FeatureTable {
     fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_u16::<BigEndian>(0)  // number of records
+        // > Offset from start of Feature table to FeatureParams table,
+        // > if defined for the feature and present, else NULL.
+        // The FeatureParams table doesn't appear to be documented anywhere?????
+        writer.write_u16::<BigEndian>(0)?;
+        let len = self.lookup_list_indices.len() as u16;
+        writer.write_u16::<BigEndian>(len)?;
+        for &idx in &self.lookup_list_indices {
+            writer.write_u16::<BigEndian>(idx)?;
+        }
+        Ok(())
     }
 }

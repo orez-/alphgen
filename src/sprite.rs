@@ -47,7 +47,7 @@ impl Sprite {
             let mut out = Vec::new();
             while {
                 let (x, y) = edge.dest();
-                edge = [Left, Up, Right].into_iter().filter_map(|dir| {
+                edge = [Right, Up, Left].into_iter().filter_map(|dir| {
                     let direction = edge.direction.turn(dir);
                     let candidate = Edge { x, y, direction };
                     edges.contains(&candidate).then(|| candidate)
@@ -216,11 +216,12 @@ mod tests {
         };
         let mut actual = sprite.find_contours();
         let mut expected = vec![
-            vec![
-                (0, 1), (1, 1), (1, 3), (6, 3), (6, 1), (7, 1), (7, 3), (6, 3), (6, 5), (5, 5),
-                (5, 7), (4, 7), (4, 8), (3, 8), (3, 7), (2, 7), (2, 5), (1, 5), (1, 3), (0, 3)
-            ],
-            vec![(2, 4), (2, 5), (3, 5), (3, 7), (4, 7), (4, 5), (5, 5), (5, 4)],
+            vec![(0, 1), (1, 1), (1, 3), (0, 3)],
+            vec![(1, 3), (6, 3), (6, 5), (5, 5), (5, 4), (2, 4), (2, 5), (1, 5)],
+            vec![(2, 5), (3, 5), (3, 7), (2, 7)],
+            vec![(3, 7), (4, 7), (4, 8), (3, 8)],
+            vec![(4, 5), (5, 5), (5, 7), (4, 7)],
+            vec![(6, 1), (7, 1), (7, 3), (6, 3)],
         ];
 
         normalize_contours(&mut actual);

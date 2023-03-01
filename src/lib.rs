@@ -183,7 +183,7 @@ where
                 .map(|chr|
                     chars.iter()
                         .position(|&c| c == chr)  // XXX: probably make a lookup.
-                        .expect("ligature must be made up of glyphs that exist in the font")
+                        .expect("ligature must be composed of glyphs that exist in the font")
                         as u16 + 1
                 ).map(GlyphId)
                 .collect();

@@ -11,7 +11,7 @@ pub(crate) struct Head {
     version: u32,
     font_revision: u32,
     checksum_adjustment: u32,
-    flags: u16,
+    flags: Flags,
     units_per_em: u16,
     created: time::DateTime,
     modified: time::DateTime,
@@ -38,7 +38,7 @@ impl Head {
             version: 0x00010000,
             font_revision: 0x00010000,
             checksum_adjustment: 0,
-            flags: 0,
+            flags: Flags::INTEGER_SCALING,
             units_per_em: 16, // XXX: this one actually matters
             created: now,
             modified: now,
@@ -60,7 +60,7 @@ impl FontTable for Head {
         writer.write_u32::<BigEndian>(self.font_revision)?;
         writer.write_u32::<BigEndian>(self.checksum_adjustment)?;
         writer.write_u32::<BigEndian>(0x5F0F3CF5)?;  // magic number
-        writer.write_u16::<BigEndian>(self.flags)?;
+        writer.write_u16::<BigEndian>(self.flags.bits)?;
         writer.write_u16::<BigEndian>(self.units_per_em)?;
         writer.write_i64::<BigEndian>(self.created)?;
         writer.write_i64::<BigEndian>(self.modified)?;
@@ -72,6 +72,12 @@ impl FontTable for Head {
         writer.write_i16::<BigEndian>(self.glyph_data_format)?;
         writer.write_u16::<BigEndian>(0x0000)?;
         Ok(())
+    }
+}
+
+bitflags! {
+    struct Flags: u16 {
+        const INTEGER_SCALING = 1 << 3;
     }
 }
 

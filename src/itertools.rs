@@ -1,4 +1,4 @@
-pub struct SplitWhen<'a, T, F> {
+pub(crate) struct SplitWhen<'a, T, F> {
     slice: &'a [T],
     f: F,
 }
@@ -26,9 +26,13 @@ where F: FnMut(&T, &T) -> bool {
 ///
 /// # Examples
 ///
+// Rust, in its infinite wisdom, does not allow doctesting private fns.
+// https://stackoverflow.com/a/76289746
+// we just ignore this doctest and duplicate it below.
+// for the record: this sucks real bad, Rust!!!
 /// ```ignore
 /// let v = [1, 4, 5, 6, 5, 7, 8, 9];
-/// let mut it = split_when(&v, |a, b| a + 1 == b);
+/// let mut it = split_when(&v, |&a, &b| a + 1 != b);
 ///
 /// assert_eq!(it.next().unwrap(), &[1]);
 /// assert_eq!(it.next().unwrap(), &[4, 5, 6]);
@@ -36,8 +40,25 @@ where F: FnMut(&T, &T) -> bool {
 /// assert_eq!(it.next().unwrap(), &[7, 8, 9]);
 /// assert!(it.next().is_none());
 /// ```
-pub fn split_when<T, F>(slice: &[T], f: F) -> SplitWhen<'_, T, F>
+pub(crate) fn split_when<T, F>(slice: &[T], f: F) -> SplitWhen<'_, T, F>
 where F: FnMut(&T, &T) -> bool
 {
     SplitWhen { slice, f }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_when_works() {
+        let v = [1, 4, 5, 6, 5, 7, 8, 9];
+        let mut it = split_when(&v, |&a, &b| a + 1 != b);
+
+        assert_eq!(it.next().unwrap(), &[1]);
+        assert_eq!(it.next().unwrap(), &[4, 5, 6]);
+        assert_eq!(it.next().unwrap(), &[5]);
+        assert_eq!(it.next().unwrap(), &[7, 8, 9]);
+        assert!(it.next().is_none());
+    }
 }

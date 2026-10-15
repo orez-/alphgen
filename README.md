@@ -24,3 +24,8 @@ let ligatures = hashmap! {
 let font = alphgen::bitmap_font(width, height, glyphs, ligatures);
 font.save("my_neat_font.ttf");
 ```
+
+## Examples
+
+Run `cargo run --example bitmap_font` to generate `my_neat_font.ttf`.
+See the corresponding code in [`examples/bitmap_font.rs`](examples/bitmap_font.rs).

@@ -1,7 +1,7 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6post.html
 use crate::{FontTable, GlyphId, TableWriter};
 use std::io::{self, Write};
-use std::iter::repeat;
+use std::iter::repeat_n;
 use byteorder::{BigEndian, WriteBytesExt};
 
 const NOT_DEF: GlyphId = GlyphId(0);
@@ -22,10 +22,10 @@ impl Post {
     pub fn from_ascii_order(order: &[char], count: usize) -> Self {
         let diff = count.checked_sub(order.len()+1)
             .expect("count must be > order.len()");
-        let glyphs = order.into_iter()
+        let glyphs = order.iter()
             .map(|&c| to_macintosh(c).unwrap_or(NOT_DEF));
         let names: Vec<_> = [NOT_DEF].into_iter().chain(glyphs)
-            .chain(repeat(NOT_DEF).take(diff))
+            .chain(repeat_n(NOT_DEF, diff))
             .map(GlyphName::Preset)
             .collect();
         assert_eq!(names.len(), count);

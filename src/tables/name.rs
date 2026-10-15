@@ -1,4 +1,6 @@
 // https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6name.html
+#![allow(dead_code)]
+
 use crate::{FontTable, TableWriter};
 use crate::platform::Platform;
 use std::io::{self, Write};

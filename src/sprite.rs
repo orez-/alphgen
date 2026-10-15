@@ -50,7 +50,7 @@ impl Sprite {
                 edge = [Right, Up, Left].into_iter().filter_map(|dir| {
                     let direction = edge.direction.turn(dir);
                     let candidate = Edge { x, y, direction };
-                    edges.contains(&candidate).then(|| candidate)
+                    edges.contains(&candidate).then_some(candidate)
                 }).next().expect("edges generated from pixel grid should have a looping path");
                 seen.insert(edge);
                 out.push(edge);
@@ -126,7 +126,7 @@ impl Edge {
     fn surrounding(x: usize, y: usize) -> [Edge; 4] {
         [
             Edge { x, y: y + 1, direction: Direction::Up },
-            Edge { x: x, y, direction: Direction::Right },
+            Edge { x, y, direction: Direction::Right },
             Edge { x: x + 1, y, direction: Direction::Down },
             Edge { x: x + 1, y: y + 1, direction: Direction::Left },
         ]

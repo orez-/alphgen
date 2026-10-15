@@ -111,7 +111,7 @@ impl Glyph {
                 // instructions
                 let instruction_len = instructions.len() as u16;
                 writer.write_u16::<BigEndian>(instruction_len)?;
-                writer.write_all(&instructions)?;
+                writer.write_all(instructions)?;
 
                 // flags + coords
                 let mut x = 0;
@@ -168,7 +168,7 @@ impl Glyph {
                 if dx > 0 {
                     flag |= GlyphFlags::XMod;
                 }
-                dxs.write(&[byte])?;
+                dxs.write_all(&[byte])?;
             }
             Err(_) => {
                 // If the x-short Vector bit is not set, and this bit is not set,
@@ -197,7 +197,7 @@ impl Glyph {
                 if dy > 0 {
                     flag |= GlyphFlags::YMod;
                 }
-                dys.write(&[byte])?;
+                dys.write_all(&[byte])?;
             }
             Err(_) => {
                 // If the y-short Vector bit is not set, and this bit is not set,
@@ -262,8 +262,8 @@ impl From<Sprite> for Glyph {
 }
 
 fn into_contours(contours: &[Vec<(usize, usize)>]) -> Vec<Contour> {
-    contours.into_iter().map(|contour| {
-        contour.into_iter().map(|&(x, y)| Coordinate {
+    contours.iter().map(|contour| {
+        contour.iter().map(|&(x, y)| Coordinate {
             x: x.try_into().unwrap(),
             y: y.try_into().unwrap(),
             on_curve: true,

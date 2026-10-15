@@ -12,7 +12,7 @@ pub(crate) struct CMap {
 
 impl CMap {
     pub(crate) fn from_char_order(order: &[char]) -> Result<Self, ()> {
-        let order: Result<Vec<u16>, _> = order.into_iter().map(|&c| to_u16(c)).collect();
+        let order: Result<Vec<u16>, _> = order.iter().map(|&c| to_u16(c)).collect();
         let mut glyph_idx = 1;
         let segments: Vec<_> = split_when(&order?, |&a, &b| a + 1 != b)
             .map(|slice| {

@@ -14,7 +14,7 @@ impl Loca {
 
     pub fn needs_long(&self) -> bool {
         let longest = u16::MAX as usize;
-        matches!(self.offsets.last(), Some(&idx) if idx > longest)
+        self.offsets.last().is_some_and(|&idx| idx > longest)
     }
 }
 

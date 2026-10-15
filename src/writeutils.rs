@@ -104,16 +104,13 @@ impl<'a, W: Write> Write for TableWriter<'a, W> {
         }
 
         // middle
-        // XXX: array_chunks is nightly as of 1.67
-        let mut chunks = bytes.chunks_exact(4);
-        for chunk in chunks.by_ref() {
-            let chunk = chunk.try_into().unwrap();
+        let (chunks, rem) = bytes.as_chunks::<4>();
+        for &chunk in chunks {
             let word = u32::from_be_bytes(chunk);
             self.checksum = self.checksum.wrapping_add(word);
         }
 
         // end
-        let rem = chunks.remainder();
         self.in_progress_word[..rem.len()]
             .copy_from_slice(rem);
 

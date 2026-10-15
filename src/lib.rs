@@ -13,7 +13,7 @@ use std::io::{self, Seek, Write};
 use byteorder::{BigEndian, WriteBytesExt};
 use bsearch::BSearch;
 use crate::sprite::Sprite;
-use crate::tables::{CMap, Glyf, GSub, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post, name};
+use crate::tables::{CMap, Glyf, GSub, Head, HHea, HMtx, Loca, MaxP, Name, Os2, Post};
 use crate::writeutils::{TableWriter, TwoWrite};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
